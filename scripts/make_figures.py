@@ -31,6 +31,7 @@ import fetch_data  # noqa: E402
 
 from bzfig import panels  # noqa: E402
 from bzfig import figure_2h_supplementary_4 as heatmaps  # noqa: E402
+from bzfig.constants import COHORTS, SUPP1_GENES  # noqa: E402
 from bzfig.data import load_dataset, load_supp1a_markers  # noqa: E402
 
 REPO = Path(__file__).resolve().parent.parent
@@ -90,6 +91,7 @@ def build(adata, markers: pd.Index, datadir: Path, outdir: Path | None = None) -
         "Figure_1D_unique_markers_per_cluster": lambda: panels.figure_1d(),
         "Figure_1F_cst1_srs44": lambda: panels.figure_1f(adata),
         "Figure_1G_cst1_violin": lambda: panels.figure_1g(adata),
+        "Figure_3D_in_vitro": lambda: panels.figure_3d(adata),
         "Supplementary_1A_all_markers_heatmap": lambda: panels.supplementary_1a(adata, markers),
         "Figure_2H_correlation_heatmap": fig2h,
         "Supplementary_4_CCC": lambda: heatmaps.supplementary_4(supp4()["CCC"], "CCC"),
@@ -108,6 +110,21 @@ def build(adata, markers: pd.Index, datadir: Path, outdir: Path | None = None) -
         jobs[f"Figure_1E_{safe}"] = (
             lambda g=gene_id, lbl=label: panels._gene_umap(panels.in_vivo(adata), g, lbl)
         )
+    for panel, label, gene_id in SUPP1_GENES:
+        jobs[f"Supplementary_{panel}_{label}"] = (
+            lambda g=gene_id, lbl=label: panels._gene_umap(panels.in_vivo(adata), g, lbl)
+        )
+    # Figure 6 redraws Figure 3A-C without the grey layer. Its panels are named
+    # for the cohort they hold, not for the column header printed above them:
+    # the two disagree, which is item 8 of docs/todo-for-authors.md.
+    for letter, name, orig_ident, background in COHORTS:
+        jobs[f"Figure_{letter}_umap"] = (
+            lambda o=orig_ident, bg=background: panels.figure_3_umap(adata, o, bg)
+        )
+        jobs[f"Figure_{letter}_cells_per_phase"] = (
+            lambda o=orig_ident: panels.figure_3_counts(adata, o)
+        )
+        jobs[f"Figure_6_{name}"] = lambda o=orig_ident: panels.figure_6_umap(adata, o)
     return jobs
 
 

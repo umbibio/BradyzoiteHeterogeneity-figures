@@ -18,6 +18,7 @@ import seaborn as sns
 
 from . import de
 from .constants import (
+    BACKGROUND_GRAY,
     CLUSTER_COLORS,
     EXPRESSION_CMAP,
     EXPRESSION_VMAX,
@@ -25,8 +26,10 @@ from .constants import (
     FIG1C_GENES,
     FIG1E_GENES,
     FIG1F_GENE,
+    FIG3D_IN_VITRO,
     HEATMAP_VMAX,
     PHASES,
+    SUPP1_GENES,
     SUPP4_GENES,
     SUPP5D_GENE,
     SUPP5E_CYST_WALL_GENES,
@@ -82,11 +85,14 @@ def _cluster_umap(subset, colorby: str, legend: bool = False):
     return ax.figure
 
 
-def _count_bars(counts: pd.Series, xlabel: str = "Count", ylabel: str = "Cluster"):
+def _count_bars(counts: pd.Series, xlabel: str = "Count", ylabel: str = "Cluster", palette=None):
     frame = counts.rename_axis(ylabel).rename(xlabel).reset_index()
     frame[ylabel] = frame[ylabel].astype(str)
     figure = plt.figure(figsize=(10, 2))
-    sns.barplot(frame, x=xlabel, y=ylabel, hue=ylabel, dodge=False, palette=CLUSTER_COLORS, legend=False)
+    sns.barplot(
+        frame, x=xlabel, y=ylabel, hue=ylabel, dodge=False,
+        palette=palette or CLUSTER_COLORS, legend=False,
+    )
     plt.subplots_adjust(left=0.1, right=0.9, top=0.9, bottom=0.25)
     return figure
 
@@ -207,7 +213,63 @@ def figure_1g(adata, seed: int = 0):
     return ax.figure
 
 
-# ------------------------------------------------------------------- Supp 1A
+# ---------------------------------------------------------------- Fig 3, Fig 6
+
+
+def cohort(adata, orig_ident: str):
+    """Boolean mask over all 8057 cells for one orig_ident cohort."""
+    return (adata.obs["orig_ident"] == orig_ident).to_numpy()
+
+
+def _highlight_umap(adata, colors, mask=None):
+    """The projection drawn once, coloured per cell; *mask* drops the rest."""
+    points = adata.obsm[UMAP_KEY]
+    if mask is not None:
+        points, colors = points[mask], [c for c, keep in zip(colors, mask) if keep]
+    return plot_3d_preview(
+        points, colors, elevation=ELEVATION, angle=AZIMUTH, remove_panels=True
+    ).figure
+
+
+def _phase_colors(adata, mask):
+    """Phase palette for the masked cells, grey for everything else."""
+    palette = dict(zip(PHASES, adata.uns["cc_phase_colors"]))
+    phases = adata.obs["transferred_cc_phase"].astype(str)
+    return [palette[p] if keep else BACKGROUND_GRAY for p, keep in zip(phases, mask)]
+
+
+def figure_3_umap(adata, orig_ident: str, background: bool = True):
+    """One cohort by transferred cell-cycle phase, the rest of the cells grey.
+
+    Figure 3A is drawn without the grey layer — the published panel is the same
+    rendering as Figure 6's first one — so *background* is false for it.
+    """
+    mask = cohort(adata, orig_ident)
+    colors = _phase_colors(adata, mask)
+    return _highlight_umap(adata, colors, mask=None if background else mask)
+
+
+def figure_3_counts(adata, orig_ident: str):
+    """Cells per phase in that cohort."""
+    mask = cohort(adata, orig_ident)
+    counts = adata.obs["transferred_cc_phase"][mask].value_counts().reindex(PHASES)
+    return _count_bars(counts, ylabel="CC Phase", palette=adata.uns["cc_phase_colors"])
+
+
+def figure_3d(adata):
+    """The in vitro cells picked out of the projection in flat salmon."""
+    in_vitro = (adata.obs["dataset_type"] == "inVitro").to_numpy()
+    colors = [FIG3D_IN_VITRO if keep else BACKGROUND_GRAY for keep in in_vitro]
+    return _highlight_umap(adata, colors)
+
+
+def figure_6_umap(adata, orig_ident: str):
+    """As Figure 3A-C, with the grey layer dropped rather than drawn."""
+    mask = cohort(adata, orig_ident)
+    return _highlight_umap(adata, _phase_colors(adata, mask), mask=mask)
+
+
+# ------------------------------------------------------------- Supp 1A, 1B, 1C
 
 
 def supplementary_1a(adata, marker_genes: pd.Index):
@@ -215,6 +277,15 @@ def supplementary_1a(adata, marker_genes: pd.Index):
     subset = in_vivo(adata)
     genes = marker_genes.intersection(subset.var_names)
     return _marker_heatmap(subset, genes, None, swap_axes=False)
+
+
+def supplementary_1bc(adata):
+    """Eleven per-gene expression UMAPs — as Figure 1E, keyed by panel and label."""
+    subset = in_vivo(adata)
+    return {
+        (panel, label): _gene_umap(subset, gene_id, label)
+        for panel, label, gene_id in SUPP1_GENES
+    }
 
 
 # -------------------------------------------------------------------- Supp 4

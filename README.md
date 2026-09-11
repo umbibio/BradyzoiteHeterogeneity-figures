@@ -54,14 +54,19 @@ Drawn from the deposited data:
 * **Figure 1E / 1F** — per-gene expression UMAPs, and cst1 (srs44)
 * **Figure 1G** — CST1/SRS44 expression violins per cluster
 * **Figure 2H** — original 5 × 29 Pearson correlations across the 6,505 cells
+* **Figure 3A / 3B / 3C** — each cohort by cell-cycle phase, and its phase bar
+* **Figure 3D** — the in vitro cells picked out of the projection
+* **Figure 6** — the same three cohorts without the grey background layer
 * **Supplementary 1A** — all cluster markers per cluster
+* **Supplementary 1B / 1C** — eleven per-gene expression UMAPs, micronemes and cyst wall proteins
 * **Supplementary 4** — cell-cycle regulators per phase, common (CCC) and modified (MCC) cell cycles
 * **Supplementary 5A / 5B / 5D** — in vivo clusters, in vitro transferred identities, srs22a
 * **Supplementary 5C / 5E / 5F** — the three differential-expression volcanoes
 
-**Figure 1D** is currently drawn from recorded counts. The manuscript workbook's
-final lists independently support these counts; the historical selection recipe
-is distinct from replotting them. See `docs/reproducibility.md`.
+Not regenerated, for the reasons given in `docs/reproducibility.md`: **Figure 1D**,
+a recorded constant, and **Figure 3E / 3F**, which are drawn from a different
+object — an scVI integration of the in vivo cells with two samples that are not
+part of this dataset.
 
 ## The data
 

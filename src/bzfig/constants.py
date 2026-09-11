@@ -126,6 +126,56 @@ FIG1E_GENES = [
 FIG1F_GENE = ("cst1 (srs44)", "TGME49_264660")
 SUPP5D_GENE = ("srs22a", "TGME49_238440")
 
+# Supplementary Figure 1B and 1C: eleven more per-gene expression UMAPs, the
+# same panel type as Figure 1E, in the order the panels print them. Every id was
+# checked against `var` and against the per-gene PNGs the analysis left behind
+# (notebooks/figures/expression_<NAME>_<id>.png). cst4 and cst10 carry no name
+# in the ToxoDB-65 annotation shipped here -- both are "hypothetical protein" --
+# so their labels rest on those filenames and on the caption. Panel 1B also
+# carries a BioRender cartoon, which is figure assembly, not a panel.
+SUPP1_GENES = [
+    ("1B", "mic2", "TGME49_201780"),
+    ("1B", "m2ap", "TGME49_214940"),
+    ("1B", "mic3", "TGME49_319560"),
+    ("1B", "ama4", "TGME49_294330"),
+    ("1B", "ama2", "TGME49_300130"),
+    ("1C", "cst4", "TGME49_261650"),
+    ("1C", "cst10", "TGME49_312330"),
+    ("1C", "mcp4", "TGME49_208730"),
+    ("1C", "bpk1", "TGME49_253330"),
+    ("1C", "mag1", "TGME49_270240"),
+    ("1C", "mag2", "TGME49_209755"),
+]
+
+# Figure 3 and Figure 6 pick one cohort out of the projection. The grey layer
+# and the flat in vitro highlight of Figure 3D are from the analysis notebook
+# (integrated_adata_me49_nr_subset-2026-06-29.ipynb, cell 172); the phase
+# palette is not a constant, it travels with the data as uns["cc_phase_colors"].
+BACKGROUND_GRAY = "#d3d3d3"
+FIG3D_IN_VITRO = "#FA8072"
+
+# The three cohorts of orig_ident that Figure 3A-C and Figure 6 draw, with the
+# Figure 3 panel letter, the name used for the rendered file, and whether that
+# Figure 3 panel carries the grey layer. 3A does not: it is the same rendering
+# as Figure 6's first panel, the cohort alone. 3B and 3C are drawn over the
+# whole projection in grey. Figure 6 never draws the grey layer.
+COHORTS = [
+    ("3A", "nonreactivated", "Nonreactivated", False),
+    ("3B", "me49_day0", "me49 Day 0", True),
+    ("3C", "me49_day3", "me49 Day 3", True),
+]
+
+# What the printed Figure 3 phase bars say, measured at 300 dpi and scaled so the
+# five bars sum to the cohort size. 3B agrees with the deposited
+# transferred_cc_phase exactly; 3A is about 1% off and 3C matches nothing in
+# either repository (see docs/reproducibility.md). The panels here are drawn
+# from the deposited labels, so this is recorded only to say by how much.
+FIG3_PHASE_BARS_PUBLISHED = {
+    "3A": {"G1a": 1516, "G1b": 3022, "S": 1350, "M": 318, "C": 299},
+    "3B": {"G1a": 162, "G1b": 161, "S": 190, "M": 64, "C": 25},
+    "3C": {"G1a": 186, "G1b": 494, "S": 191, "M": 50, "C": 29},
+}
+
 # Figure 1C: genes in plotting order, with the row-group bands drawn beside the
 # heatmap (analysis notebook cell 156; band assignment read off the published
 # panel, giving band sizes 5/7/6/6/5/5).

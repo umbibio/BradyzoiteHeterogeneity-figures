@@ -14,7 +14,13 @@ constants. Figure 2H and Supplementary 4 methods and validation are detailed in
 | Figure 1E | Six per-gene expression UMAPs (tachyzoite and bradyzoite markers) |
 | Figure 1F | cst1 (srs44) expression |
 | Figure 1G | CST1/SRS44 expression violins per cluster |
+| Figure 3A | In vivo bradyzoites by cell-cycle phase — the UMAP; see the bar below |
+| Figure 3B | me49 Day 0 by cell-cycle phase, and its phase bar |
+| Figure 3D | The in vitro cells picked out of the projection |
+| Figure 6 | The first two of the three UMAPs |
 | Supplementary 1A | All cluster markers per cluster |
+| Supplementary 1B | Five per-gene expression UMAPs (microneme transcripts) |
+| Supplementary 1C | Six per-gene expression UMAPs (known cyst wall proteins) |
 | Supplementary 5A | As Figure 1B, with a legend |
 | Supplementary 5B | In vitro bradyzoites coloured by transferred cluster identity |
 | Supplementary 5D | srs22a expression |
@@ -22,6 +28,16 @@ constants. Figure 2H and Supplementary 4 methods and validation are detailed in
 For Figure 1C, Figure 1G, Supplementary 1A and Supplementary 4 the exported
 values were additionally re-derived from the data object and re-plotted from the
 exported tables alone; both matched the published panels.
+
+Supplementary 1B and 1C are the same panel type as Figure 1E, drawn by the same
+function over the same 6505 in vivo cells. Every one of the eleven genes was
+checked against `var` and against the per-gene PNG the analysis left behind in
+`notebooks/figures/`. Nine agree with their annotation; the two that cannot are
+`cst4` (`TGME49_261650`) and `cst10` (`TGME49_312330`), both "hypothetical
+protein" with no `gene_name` in the ToxoDB-65 annotation shipped here, so their
+labels rest on the caption and on those filenames. Panel 1B also holds a
+BioRender cartoon of the two microneme subpopulations, which is figure assembly,
+not a panel.
 
 ## Reproduced from the original R recipe
 
@@ -50,6 +66,94 @@ black text and unhighlighted gene IDs. The source has 19 highlighted CCC rows
 and 20 MCC rows: TGME49_315760 (AP2XI-4) is highlighted only in MCC. This source
 asymmetry is preserved, not silently corrected or inferred from expression.
 Numerical reproduction is distinct from exact page layout.
+
+## Figure 3 and Figure 6 — the cohort panels
+
+Figure 3A–3D and Figure 6's three UMAPs all draw the same picture: one cohort of
+`obs["orig_ident"]` picked out of the integrated projection, coloured either by
+`obs["transferred_cc_phase"]` or, in 3D, flat.
+
+**The embedding is the 3-D one.** These are not 2-D scatters. They are
+`bzfig.scatter3d.plot_3d_preview` over `obsm["3d_umap_harmony_integration"]` at
+`elev=60, azim=0` — the same rendering path as Figure 1B and Supplementary 5A.
+`obsm["2d_projection"]` holds that same view projected by hand, and it is a
+tempting substitute, but matplotlib normalises each axis to the unit cube before
+projecting: a 3-D render is stretched by the range of the points it is given,
+and a scatter of the stored projection is not. Against the published Figure 3D the
+3-D render matches at an occupancy IoU of **0.96** and a scatter of
+`2d_projection` at **0.69**; the same test on Figure 3B gives 0.81 against 0.69.
+The 3-D render is also what the analysis notebook did
+(`integrated_adata_me49_nr_subset-2026-06-29.ipynb`, cells 131–137), and its
+saved output `notebooks/figures/2026-06-29/umap_dataset.png` is the published
+Figure 3D, matching it at IoU 0.98.
+
+**Figure 3A has no grey layer.** 3B and 3C are drawn over the whole projection
+with the other cells in `#d3d3d3`; 3A is the cohort alone, which makes it the
+same image as Figure 6's first panel — the two published panels are the same
+rendering, and the two files here are byte-identical. Figure 6 drops the grey
+layer from all three.
+
+**Figure 6's panels are named for their cohort, not for the column header above
+them.** The headers and the cells beneath them disagree; that is item 8 of
+`docs/todo-for-authors.md`, and the names used here
+(`Figure_6_nonreactivated`, `Figure_6_me49_day0`, `Figure_6_me49_day3`) follow
+the cells.
+
+### The phase labels — two gaps, and the panel that explains them
+
+Nothing below is tuned to. The phase bars here are drawn from the deposited
+labels and the differences are recorded rather than closed.
+
+The published bars were measured off the printed figure at 300 dpi, scaling each
+bar's pixel length so the five bars sum to the cohort size.
+
+| Panel | Published bar implies | Deposited `transferred_cc_phase` |
+| --- | --- | --- |
+| 3A (6505 cells) | 1516 / 3022 / 1350 / 318 / 299 | 1528 / 3019 / 1325 / 327 / 306 |
+| 3B (602 cells) | 162 / 161 / 190 / 64 / 25 | **162 / 161 / 190 / 64 / 25** |
+| 3C (950 cells) | 186 / 494 / 191 / 50 / 29 | 133 / 620 / 130 / 40 / 27 |
+
+1. **Figure 3C's phase vector is not in either repository.** The published bar
+   is about 50 cells off in G1a and 130 in G1b, and nothing deposited matches —
+   not `transferred_cc_phase`, not `cc_phase` (which is `G1a 50 / G1b 230 /
+   S 66 / M 63 / C 26` with 515 cells unassigned for this cohort), and no object
+   in the analysis repository either.
+   `notebooks/figures/me49d3_cc_phase_counts.png` reproduces the published
+   ratios, so the vector existed; it was never saved. Both 3C's bar **and 3C's
+   UMAP colours** are drawn from the deposited labels, so the panel here puts
+   orange (G1b) where the published one has a blue (G1a) group in the upper
+   cluster. The cells and their positions are unaffected — only which phase each
+   is called. Figure 6's third panel inherits the same gap.
+2. **Figure 3A's bar is about 1% off**, concentrated in the S bar (about 25
+   cells). Almost certainly a slightly different vintage of the label transfer;
+   `notebooks/` holds four dated `nr_transferred_cc_phase*.csv` variants and none
+   of them match either. A handful of points change colour; the panel is
+   otherwise the published one.
+3. **Figure 3B matches the deposited labels exactly**, which is what makes the
+   other two informative: the recipe is right and the label vector is not.
+
+### Figure 3E and 3F are not from this dataset
+
+They are not reproducible here, and not because something is missing from the
+data package: **they come from a different experiment.** Both were drawn by
+`notebooks/integrate.S1-S2-S3-2026-06-29.ipynb`, which scVI-integrates the 6505
+non-reactivated cells with two further samples, S1 (166 cells) and S2 (210), and
+plots the result on `obsm["X_scVI_2Dumap"]`:
+
+* **3E** is that notebook's `NR-S1-S2-highlight` — the 376 S1/S2 cells picked out
+  in red against the non-reactivated cells in grey. It matches the published
+  panel at an occupancy IoU of **0.96** (0.87 on the red points alone).
+* **3F** is its `NR-S1-S2-cc_phaseS1S2` — the same 376 cells coloured by
+  `cc_phase`, everything else grey. IoU **0.95** (0.79 on the coloured points).
+
+Neither panel involves `obs["cell_cycle_group"]`, `2d_projection`, or the
+8057-cell object this repository ships. Reading 3E as the 447 CCC cells is a
+near miss — the CCC selection does trace a similar arc through the in vivo
+projection — but the embeddings are different point clouds: the best view of the
+3-D UMAP reaches only IoU 0.53 against the published 3E, where a true match
+scores 0.84. The S1 and S2 count matrices are not in either repository, so
+nothing here can draw these two panels. Figure 3G (flow cytometry) and Figure 3H
+are outside this dataset as well.
 
 ## Reproduced from a wider gene set — the volcano plots
 
@@ -242,7 +346,11 @@ al., mined from ToxoDB.
 An earlier version of this page said that of *Supplementary Figure 1B–F*. That
 was wrong twice over: Supplementary Figure 1 has only panels A, B and C, and 1B
 and 1C are eleven per-gene expression UMAPs drawn from this dataset — the same
-panel type as Figure 1E. They are a gap in this repository, not out of scope.
+panel type as Figure 1E. They are rendered here.
+
+**Figure 3E and 3F** are drawn from a different object, and **Figure 3G and 3H**
+from flow cytometry and imaging; see the Figure 3 section above. The cartoons
+above Figure 6's UMAPs and beside Supplementary 1B are BioRender artwork.
 
 ## The enolase labels — the figure is right
 
