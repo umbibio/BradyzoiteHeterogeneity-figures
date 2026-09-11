@@ -1,1 +1,8 @@
 data/** filter=lfs diff=lfs merge=lfs -text
+
+# The manifest drives the download, so it has to be readable in a plain clone
+# before any LFS object exists. These small text files stay in git proper.
+# Kept byte-exact: fetch_data.py verifies each against the SHA-256 in the manifest.
+data/MANIFEST.json !filter !diff !merge -text
+data/uns_colors.json !filter !diff !merge -text
+data/supp1a_marker_genes.csv !filter !diff !merge -text

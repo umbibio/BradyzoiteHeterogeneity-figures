@@ -1,0 +1,402 @@
+{
+  "name": "BradyzoiteHeterogeneity figure dataset",
+  "description": "Format-independent export of the single-cell object used by the figure panels. MatrixMarket matrices are cells x genes.",
+  "generated_by": "scripts/export_dataset.py",
+  "source": {
+    "h5ad": "/home/agent/workspaces/BradyzoiteHeterogeneity-methods/data/integrated_adata_me49_nr_subset_annotated_sparse.h5ad",
+    "h5ad_sha256": "e38cc6bdae3e2e3395100270d7d758887ce26b77bb0adf2fe66235c84f625d32",
+    "pseudotime_csv": "/home/agent/workspaces/BradyzoiteHeterogeneity-methods/data/nr_pseudotime_BCC_UCC.csv",
+    "pseudotime_csv_sha256": "2582526747bcdd4a8e4630984d51b526b3c0278637e505e56e5ceb530c5fcfd3"
+  },
+  "n_obs": 8057,
+  "n_vars": 8170,
+  "gzip_level": 9,
+  "matrix_orientation": "rows = cells (obs), columns = genes (var)",
+  "layer_stats": [
+    {
+      "layer": "logcounts",
+      "dtype_source": "float32",
+      "dtype_written": "float32",
+      "stored_entries": 4951318,
+      "true_nonzeros": 4951318,
+      "explicit_zeros": 0,
+      "density": 0.07521862664865343,
+      "mtx_uncompressed_bytes": 102209834,
+      "mtx_gz_bytes": 18948763
+    }
+  ],
+  "optional_layers": {
+    "logcounts_scaled": {
+      "layer": "logcounts_scaled",
+      "dtype_source": "float64",
+      "dtype_written": "float64",
+      "stored_entries": 4951318,
+      "true_nonzeros": 4951318,
+      "explicit_zeros": 0,
+      "density": 0.07521862664865343,
+      "mtx_uncompressed_bytes": 145300328,
+      "mtx_gz_bytes": 60126306,
+      "shipped": false,
+      "enable_with": "--include-scaled-matrix",
+      "note": "no figure panel uses this layer; adding it would grow the package by 60,126,306 bytes of .mtx.gz plus roughly the same again inside figure_dataset.h5ad"
+    },
+    "counts": {
+      "layer": "counts",
+      "dtype_source": "float64",
+      "dtype_written": "int32",
+      "stored_entries": 5811021,
+      "true_nonzeros": 5695710,
+      "explicit_zeros": 115311,
+      "density": 0.0882789227123939,
+      "mtx_uncompressed_bytes": 67659851,
+      "mtx_gz_bytes": 18061992,
+      "shipped": false,
+      "enable_with": "--include-counts",
+      "note": "no figure panel uses this layer; adding it would grow the package by 18,061,992 bytes of .mtx.gz plus roughly the same again inside figure_dataset.h5ad"
+    }
+  },
+  "redundancy": {
+    "logcounts_from_counts": {
+      "recoverable": false,
+      "reason": "counts and logcounts do not share a sparsity pattern; logcounts was derived upstream from a separate 'raw_counts' layer as log1p(1e4 * raw_counts / rowsum(raw_counts)), and raw_counts is not shipped"
+    },
+    "logcounts_scaled_from_logcounts": {
+      "recoverable": true,
+      "transform": "logcounts_scaled = logcounts * c[dataset, gene]",
+      "factor_file": "logcounts_scaled_factors.csv.gz",
+      "same_pattern": true,
+      "grouping_obs_column": "dataset",
+      "datasets": [
+        "Nonreactivated",
+        "me49"
+      ],
+      "n_groups_determined": 15757,
+      "n_groups_total": 16340,
+      "n_groups_undetermined": 583,
+      "undetermined_note": "a (dataset, gene) pair with no stored logcounts entry has no observable factor; it is written as an empty field (NaN) and there is nothing to reconstruct for it",
+      "reconstruction_max_abs_diff": 1.4210854715202004e-14,
+      "reconstruction_max_rel_diff": 4.440892098500626e-16,
+      "reconstruction_bit_identical_float64": false,
+      "reconstruction_bit_identical_float32": true
+    }
+  },
+  "categoricals": {
+    "obs": {
+      "orig_ident": {
+        "n_categories": 3,
+        "ordered": false,
+        "categories": [
+          "Nonreactivated",
+          "me49 Day 0",
+          "me49 Day 3"
+        ]
+      },
+      "dataset": {
+        "n_categories": 2,
+        "ordered": false,
+        "categories": [
+          "Nonreactivated",
+          "me49"
+        ]
+      },
+      "dataset_type": {
+        "n_categories": 2,
+        "ordered": false,
+        "categories": [
+          "inVivo",
+          "inVitro"
+        ]
+      },
+      "lc_stage": {
+        "n_categories": 2,
+        "ordered": false,
+        "categories": [
+          "Tachyzoite",
+          "Bradyzoite"
+        ]
+      },
+      "nr_cluster": {
+        "n_categories": 6,
+        "ordered": false,
+        "categories": [
+          "0",
+          "1",
+          "2",
+          "3",
+          "4",
+          "5"
+        ]
+      },
+      "cluster": {
+        "n_categories": 6,
+        "ordered": false,
+        "categories": [
+          "0",
+          "1",
+          "2",
+          "3",
+          "4",
+          "5"
+        ]
+      },
+      "cc_phase": {
+        "n_categories": 5,
+        "ordered": true,
+        "categories": [
+          "G1a",
+          "G1b",
+          "S",
+          "M",
+          "C"
+        ]
+      },
+      "transferred_cc_phase": {
+        "n_categories": 5,
+        "ordered": true,
+        "categories": [
+          "G1a",
+          "G1b",
+          "S",
+          "M",
+          "C"
+        ]
+      },
+      "cell_cycle_group": {
+        "n_categories": 2,
+        "ordered": false,
+        "categories": [
+          "CCC",
+          "MCC"
+        ]
+      }
+    },
+    "var": {
+      "seqid": {
+        "n_categories": 14,
+        "ordered": false,
+        "categories": [
+          "TGME49_chrII",
+          "TGME49_chrIII",
+          "TGME49_chrIV",
+          "TGME49_chrIX",
+          "TGME49_chrIa",
+          "TGME49_chrIb",
+          "TGME49_chrV",
+          "TGME49_chrVI",
+          "TGME49_chrVIII",
+          "TGME49_chrVIIa",
+          "TGME49_chrVIIb",
+          "TGME49_chrX",
+          "TGME49_chrXI",
+          "TGME49_chrXII"
+        ]
+      },
+      "gene_name": {
+        "n_categories": 1370,
+        "ordered": false,
+        "categories": null,
+        "note": "too many levels to list; the level order is alphabetical in the source object and the CSV carries the values verbatim"
+      },
+      "gene_description": {
+        "n_categories": 3244,
+        "ordered": false,
+        "categories": null,
+        "note": "too many levels to list; the level order is alphabetical in the source object and the CSV carries the values verbatim"
+      }
+    }
+  },
+  "column_dtypes": {
+    "obs": {
+      "orig_ident": "category",
+      "dataset": "category",
+      "dataset_type": "category",
+      "lc_stage": "category",
+      "nr_cluster": "category",
+      "cluster": "category",
+      "cc_phase": "category",
+      "transferred_cc_phase": "category",
+      "nr_leiden": "float64",
+      "sequence_568349016": "float64",
+      "pseudotime_568349016": "float64",
+      "sequence_490124": "float64",
+      "pseudotime_490124": "float64",
+      "pseudotime_UCC": "float64",
+      "cell_cycle_group": "category"
+    },
+    "var": {
+      "seqid": "category",
+      "gene_name": "category",
+      "gene_description": "category"
+    },
+    "obsm": {
+      "3d_umap_harmony_integration": "float32",
+      "2d_projection": "float64"
+    }
+  },
+  "cell_cycle_group": {
+    "source": "/home/agent/workspaces/BradyzoiteHeterogeneity-methods/data/nr_pseudotime_BCC_UCC.csv",
+    "definition": "CCC = non-reactivated cell with non-null pseudotime_UCC; MCC = remaining non-reactivated cell; missing otherwise",
+    "counts": {
+      "CCC": 447,
+      "MCC": 6058,
+      "NA": 1552
+    }
+  },
+  "verification": {
+    "layers": {
+      "logcounts": {
+        "shape": [
+          8057,
+          8170
+        ],
+        "stored_entries": 4951318,
+        "source_dtype": "float32",
+        "max_abs_diff": 0.0,
+        "max_abs_diff_as_float64": 2.3840332019631205e-07,
+        "bit_identical": true
+      }
+    },
+    "obs": {
+      "orig_ident": "exact (string values)",
+      "dataset": "exact (string values)",
+      "dataset_type": "exact (string values)",
+      "lc_stage": "exact (string values)",
+      "nr_cluster": "exact (string values)",
+      "cluster": "exact (string values)",
+      "cc_phase": "exact (string values)",
+      "transferred_cc_phase": "exact (string values)",
+      "nr_leiden": {
+        "source_dtype": "float64",
+        "max_abs_diff": 0.0
+      },
+      "sequence_568349016": {
+        "source_dtype": "float64",
+        "max_abs_diff": 0.0
+      },
+      "pseudotime_568349016": {
+        "source_dtype": "float64",
+        "max_abs_diff": 0.0
+      },
+      "sequence_490124": {
+        "source_dtype": "float64",
+        "max_abs_diff": 0.0
+      },
+      "pseudotime_490124": {
+        "source_dtype": "float64",
+        "max_abs_diff": 0.0
+      },
+      "pseudotime_UCC": {
+        "source_dtype": "float64",
+        "max_abs_diff": 0.0
+      },
+      "cell_cycle_group": "exact (string values)"
+    },
+    "var": {
+      "seqid": "exact (string values)",
+      "gene_name": "exact (string values)",
+      "gene_description": "exact (string values)"
+    },
+    "obsm": {
+      "3d_umap_harmony_integration": {
+        "shape": [
+          8057,
+          3
+        ],
+        "source_dtype": "float32",
+        "max_abs_diff": 0.0
+      },
+      "2d_projection": {
+        "shape": [
+          8057,
+          2
+        ],
+        "source_dtype": "float64",
+        "max_abs_diff": 0.0
+      }
+    },
+    "h5ad": {
+      "logcounts": {
+        "max_abs_diff": 0.0
+      },
+      "obs_var_obsm_uns": "exact"
+    },
+    "uns_colors": "exact",
+    "logcounts_scaled_reconstruction": {
+      "rule": "logcounts_scaled[i, j] = logcounts[i, j] * factor[obs.dataset[i], j]",
+      "max_abs_diff_float64": 1.4210854715202004e-14,
+      "max_rel_diff_float64": 4.440892098500626e-16,
+      "bit_identical_float64": false,
+      "bit_identical_float32": true,
+      "h5ad_varm": "identical"
+    },
+    "extra_files": {
+      "supp1a_marker_genes.csv": "byte-identical to source"
+    }
+  },
+  "files": [
+    {
+      "filename": "figure_dataset.h5ad",
+      "sha256": "55b1ed26bb821c91306ac3d88de44aaf522c15dc3abcb0e6d8efe31c54c869a3",
+      "bytes": 15090154,
+      "description": "Stripped AnnData version of this package for scanpy users. X is None and the matrices live in .layers, so nothing is duplicated. varm['logcounts_scaled_factors'] (n_vars x n_datasets, column order in uns['logcounts_scaled_factors_datasets']) lets logcounts_scaled be rebuilt without any other file",
+      "urls": []
+    },
+    {
+      "filename": "logcounts.mtx.gz",
+      "sha256": "0fc5da9e16f60080481cac11888a4b83c2576a0a54206858a922d74c484be875",
+      "bytes": 18948763,
+      "description": "MatrixMarket (real, coordinate) log-normalised expression, rows = cells, columns = genes; float32 values written with shortest round-trip decimal representation",
+      "urls": []
+    },
+    {
+      "filename": "logcounts_scaled_factors.csv.gz",
+      "sha256": "6bfd2dcfa47d59b9e2ef42b4bc9c5513fca780b0e8d9f6901d53bfb6d656a378",
+      "bytes": 196727,
+      "description": "Long-form table (dataset, gene_id, factor), float64. Required: logcounts_scaled[i, j] = logcounts[i, j] * factor[obs.dataset[i], j]. The reconstruction is bit-identical to the source layer in float32 and accurate to 1 ulp (4.4e-16 relative) in float64, which is why logcounts_scaled.mtx.gz is not shipped",
+      "urls": []
+    },
+    {
+      "filename": "obs.csv.gz",
+      "sha256": "1a4f99823d27576d3d293c5af9090af92bf592df6a5b06c2b74430f37799bb44",
+      "bytes": 213117,
+      "description": "Per-cell metadata, index column 'barcode'; includes cell_cycle_group (CCC/MCC) and the pseudotime columns. Factor level order is in the 'categoricals' section of MANIFEST.json",
+      "urls": []
+    },
+    {
+      "filename": "obsm_2d_projection.csv.gz",
+      "sha256": "583f628a181e09b074b0e788fc3ba39e3877c4341fb42a053ca7668b870ed8fa",
+      "bytes": 192085,
+      "description": "Embedding '2d_projection' (8057 cells x 2 dims), indexed by barcode; also duplicated as obs columns in the source object, which this package drops",
+      "urls": []
+    },
+    {
+      "filename": "obsm_3d_umap_harmony_integration.csv.gz",
+      "sha256": "fb8975ac6c45d0d23184a4c84fe9f523459e0c30e3ea513ea6f9183d04242f4b",
+      "bytes": 159084,
+      "description": "Embedding '3d_umap_harmony_integration' (8057 cells x 3 dims), indexed by barcode; also duplicated as obs columns in the source object, which this package drops",
+      "urls": []
+    },
+    {
+      "filename": "supp1a_marker_genes.csv",
+      "sha256": "f10a2ce8d60225baeba1389dd77b9047fa63a9b2ec3b44eef0ad0b765229f211",
+      "bytes": 16800,
+      "description": "Supplementary Figure 1A marker gene list, copied verbatim: 600 rows, no header; column 1 = gene id, columns 2-7 = per-cluster scores for nr clusters 0-5. The published code reads it with pd.read_csv(..., header=None, index_col=0) and takes idxmax(axis=1) as the cluster assignment (copied from notebooks/figures/heatmap_data.csv)",
+      "urls": []
+    },
+    {
+      "filename": "uns_colors.json",
+      "sha256": "a38e6045dd1356c8a36d2a05cfe1e4615498df880b21d7a423ba0a950d0004a3",
+      "bytes": 105,
+      "description": "All *_colors palettes from adata.uns, as hex strings",
+      "urls": []
+    },
+    {
+      "filename": "var.csv.gz",
+      "sha256": "b35d05ab8e880c7c7697e9de878e8d057905bfd8f07612fed3ae04f78768cfc5",
+      "bytes": 76512,
+      "description": "Per-gene metadata, index column 'gene_id'; includes gene_name and gene_description",
+      "urls": []
+    }
+  ],
+  "total_bytes": 34893347
+}
