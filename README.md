@@ -6,10 +6,14 @@ of what reproduces exactly and what does not.
 
 ```bash
 uv sync                              # or: pip install -e .
-python scripts/fetch_data.py         # download + verify the input data
 python scripts/make_figures.py       # render every panel to PNG, SVG and PDF
 python scripts/make_preview.py       # build preview/index.html from what was rendered
 ```
+
+**You do not need git-lfs.** The input data is stored in LFS, but if your clone
+left pointer stubs in `data/` instead of the files, `make_figures.py` notices and
+downloads them from the public mirrors before rendering. Run
+`python scripts/fetch_data.py` to do that step on its own.
 
 Rendered panels land in `figures/`. `python scripts/make_figures.py --list` shows
 the panel names; `--panel 1C 1G` renders a subset.
@@ -48,12 +52,19 @@ a recorded constant.
 
 `scripts/fetch_data.py` reads `data/MANIFEST.json`, tries each file's mirrors in
 turn and verifies the SHA-256 of whatever it gets, falling through to the next
-mirror on a mismatch. Extra mirrors can be supplied without editing anything:
+mirror on a mismatch. `MANIFEST.json` is deliberately kept out of LFS so it can
+always be read, whatever state the rest of `data/` is in.
+
+A file is re-fetched if it is missing, the wrong size, fails its checksum, or is
+a git-lfs pointer stub — so a clone made without git-lfs repairs itself. Extra
+mirrors can be supplied without editing anything, and take priority over the
+published ones:
 
 ```bash
 python scripts/fetch_data.py --base-url https://example.org/bradyzoite/
 BZFIG_DATA_URLS="https://mirror-a/ https://mirror-b/" python scripts/fetch_data.py
 python scripts/fetch_data.py --check      # verify what is already on disk
+python scripts/make_figures.py --no-fetch # fail rather than download
 ```
 
 The dataset ships in plain formats that need no special library — MatrixMarket

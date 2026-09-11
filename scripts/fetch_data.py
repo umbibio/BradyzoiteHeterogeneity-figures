@@ -34,6 +34,12 @@ MANIFEST = REPO / "data" / "MANIFEST.json"
 CHUNK = 1 << 20
 
 
+def read_manifest_file(datadir: Path = None) -> dict:
+    """The manifest for a data directory. Kept out of LFS so it always reads."""
+    path = MANIFEST if datadir is None else Path(datadir) / MANIFEST.name
+    return json.loads(path.read_text())
+
+
 def sha256(path: Path) -> str:
     digest = hashlib.sha256()
     with path.open("rb") as handle:
@@ -42,11 +48,17 @@ def sha256(path: Path) -> str:
     return digest.hexdigest()
 
 
-def base_urls(extra: list[str]) -> list[str]:
-    """Mirror base URLs, highest priority first."""
+def base_urls(extra: list[str], manifest: dict) -> list[str]:
+    """Mirror base URLs, highest priority first.
+
+    Command line first, then ``BZFIG_DATA_URLS``, then the manifest's own list —
+    so a user can override the published mirrors without editing anything.
+    """
     env = os.environ.get("BZFIG_DATA_URLS", "")
     from_env = [u for u in env.replace(",", " ").split() if u]
-    return [u if u.endswith("/") else u + "/" for u in [*extra, *from_env]]
+    from_manifest = manifest.get("mirrors", [])
+    urls = [*extra, *from_env, *from_manifest]
+    return [u if u.endswith("/") else u + "/" for u in urls]
 
 
 def candidates(entry: dict, bases: list[str]) -> list[str]:
@@ -75,9 +87,24 @@ def download(url: str, dest: Path) -> None:
         raise
 
 
+def is_lfs_pointer(path: Path) -> bool:
+    """True for a git-lfs pointer left behind by a clone without git-lfs.
+
+    The pointer is a short text stub, so it fails the size check anyway; naming
+    it lets the script say something more useful than "wrong size".
+    """
+    try:
+        with path.open("rb") as handle:
+            return handle.read(42).startswith(b"version https://git-lfs")
+    except OSError:
+        return False
+
+
 def verify(path: Path, entry: dict) -> tuple[bool, str]:
     if not path.exists():
         return False, "missing"
+    if is_lfs_pointer(path):
+        return False, "git-lfs pointer, not the file itself"
     if path.stat().st_size != entry["bytes"]:
         return False, f"wrong size ({path.stat().st_size} != {entry['bytes']})"
     if sha256(path) != entry["sha256"]:
@@ -147,11 +174,12 @@ def main() -> int:
                 failures.append(entry["filename"])
         if failures:
             print(f"\n{len(failures)} file(s) failed verification: {', '.join(failures)}")
+            print("Run scripts/fetch_data.py (no arguments) to download them.")
             return 1
         print("\nAll files verified.")
         return 0
 
-    bases = base_urls(args.base_url)
+    bases = base_urls(args.base_url, manifest)
     print(f"Fetching {len(files)} file(s) into {outdir}")
     if bases:
         print(f"Mirror bases: {', '.join(bases)}")

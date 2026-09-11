@@ -211,6 +211,13 @@ NR_PREFIX = "nr_"
 
 H5AD_NAME = "figure_dataset.h5ad"
 MANIFEST_NAME = "MANIFEST.json"
+
+# Public mirrors, highest priority first. Kept here rather than only in the
+# manifest so regenerating the package does not silently drop them.
+MIRRORS = [
+    "https://watson.math.umb.edu/data/BradyzoiteHeterogeneity-figures/data/",
+    "https://poisson.math.umb.edu/data/BradyzoiteHeterogeneity-figures/data/",
+]
 FACTORS_NAME = "logcounts_scaled_factors.csv.gz"
 FACTORS_VARM_KEY = "logcounts_scaled_factors"
 
@@ -1496,6 +1503,9 @@ def main(argv: list[str] | None = None) -> int:
             },
         },
         "verification": verification,
+        # Where fetch_data.py looks when data/ is empty or holds LFS pointers.
+        # Per-file "urls" entries override these for a single file.
+        "mirrors": MIRRORS,
         "files": files,
         "total_bytes": sum(f["bytes"] for f in files),
     }

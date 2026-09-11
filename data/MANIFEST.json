@@ -432,6 +432,10 @@
       }
     }
   },
+  "mirrors": [
+    "https://watson.math.umb.edu/data/BradyzoiteHeterogeneity-figures/data/",
+    "https://poisson.math.umb.edu/data/BradyzoiteHeterogeneity-figures/data/"
+  ],
   "files": [
     {
       "filename": "figure_dataset.h5ad",

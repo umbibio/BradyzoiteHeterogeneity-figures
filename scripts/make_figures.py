@@ -5,8 +5,9 @@
     python scripts/make_figures.py --panel 1C 1G   # just those
     python scripts/make_figures.py --format png    # one format only
 
-Run ``scripts/fetch_data.py`` first; this reads the deposited dataset from
-``data/`` and writes nothing else.
+The deposited dataset is fetched automatically if ``data/`` is empty, stale, or
+holds git-lfs pointers rather than the files themselves — so a clone made without
+git-lfs installed still works. ``--no-fetch`` turns that off.
 """
 
 from __future__ import annotations
@@ -23,6 +24,9 @@ import matplotlib.pyplot as plt  # noqa: E402
 import pandas as pd  # noqa: E402
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+
+import fetch_data  # noqa: E402
 
 from bzfig import panels  # noqa: E402
 from bzfig.data import load_dataset, load_supp1a_markers  # noqa: E402
@@ -94,6 +98,35 @@ def build(adata, markers: pd.Index, datadir: Path) -> dict[str, callable]:
     return jobs
 
 
+def ensure_data(datadir: Path, no_fetch: bool) -> bool:
+    """Make sure ``datadir`` holds the real input files before rendering.
+
+    A clone made without git-lfs leaves pointer stubs in place of the data, which
+    would otherwise fail deep inside the loader with something unhelpful. The
+    manifest is in plain git precisely so it can be read at this point.
+    """
+    manifest = fetch_data.read_manifest_file(datadir)
+    bad = [e for e in manifest["files"] if not fetch_data.verify(datadir / e["filename"], e)[0]]
+    if not bad:
+        return True
+
+    names = ", ".join(e["filename"] for e in bad)
+    if no_fetch:
+        print(f"{len(bad)} input file(s) missing or not intact: {names}")
+        print("Run scripts/fetch_data.py, or drop --no-fetch.")
+        return False
+
+    print(f"{len(bad)} input file(s) missing or not intact; fetching.")
+    bases = fetch_data.base_urls([], manifest)
+    missing = [e["filename"] for e in bad if not fetch_data.fetch(e, datadir, bases, force=True)]
+    if missing:
+        print(f"\nCould not retrieve: {', '.join(missing)}")
+        print("Supply a mirror with BZFIG_DATA_URLS, or see data/README.md")
+        return False
+    print()
+    return True
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--data", type=Path, default=REPO / "data")
@@ -101,7 +134,13 @@ def main() -> int:
     parser.add_argument("--format", nargs="+", choices=FORMATS, default=list(FORMATS))
     parser.add_argument("--panel", nargs="+", default=None, help="substring match on panel names")
     parser.add_argument("--list", action="store_true", help="list panel names and exit")
+    parser.add_argument(
+        "--no-fetch", action="store_true", help="fail instead of downloading missing input"
+    )
     args = parser.parse_args()
+
+    if not args.list and not ensure_data(args.data, args.no_fetch):
+        return 1
 
     adata = load_dataset(args.data)
     markers = load_supp1a_markers(args.data)
