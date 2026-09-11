@@ -185,7 +185,14 @@ the original filtering recipe.
 * **Points off the top of the axis.** The published y limits are 1e-100, 1e-60
   and 1e-200, which is what these panels use. 100 of 5C's 2107 points have an
   adjusted p-value below 1e-100 — 20 of them underflow float64 to zero — and are
-  drawn as triangles on the axis top rather than dropped. 5E and 5F have none.
+  not plotted, which is what the published panel does: it prints no marker for
+  any of them. They remain in the DE table, so nothing is lost from the numbers;
+  only the drawing clips. 5E and 5F have no such points.
+
+  One consequence worth knowing when comparing panels side by side: srs2/p35 is
+  among 5C's clipped genes here, while the published panel places it at about
+  1e-88 and labels it. The reproduction puts its adjusted p-value slightly lower
+  than the original run did; the fold change agrees.
 * **ORF F in 5F.** `TGME49_302005` reaches log2FC +8.41 there but only
   pvals_adj = 0.23, so it is not among the plotted genes. The published 5F does
   not label it either; it labels ORF F in 5C, where the reproduction gives

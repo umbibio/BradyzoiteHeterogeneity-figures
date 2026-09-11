@@ -310,20 +310,23 @@ def _volcano(table: pd.DataFrame, panel: str):
 
     The published panels colour their points by gene class rather than by
     significance, and only the genes the caption calls out are coloured at all —
-    colouring every hypothetical protein would turn half of 5C pink. Points
-    whose adjusted p-value falls off the top of the published axis are drawn on
-    the axis as triangles rather than dropped.
+    colouring every hypothetical protein would turn half of 5C pink.
+
+    Genes whose adjusted p-value falls off the top of the published axis are not
+    plotted, which is what the published panels do: 5C has 100 such genes and
+    prints no marker for any of them. They are still in the exported DE table.
     """
     axes = VOLCANO_AXES[panel]
     low, high = VOLCANO_LABEL_RANGE[panel]
     comparison = de.COMPARISONS[panel]
 
     points = table[table["significant"]]
+    with np.errstate(divide="ignore"):
+        on_scale = -np.log10(points["pval_adj"].to_numpy()) <= axes["ymax"]
+    points = points[on_scale]
     x = points["log2fc"].to_numpy()
     with np.errstate(divide="ignore"):
         y = -np.log10(points["pval_adj"].to_numpy())
-    off_scale = y > axes["ymax"]
-    y = np.minimum(y, axes["ymax"])
 
     called_out = (x < low) | (x > high)
     ribosomal = points["gene_description"].str.contains("ribosomal protein").to_numpy()
@@ -349,14 +352,13 @@ def _volcano(table: pd.DataFrame, panel: str):
 
     figure, ax = plt.subplots(figsize=(11, 3.6))
     for name in ("other", "ribosomal protein", "cyst wall protein", "called out"):
-        for marker, scale in (("o", 8), ("^", 9)):
-            pick = (category == name) & (off_scale == (marker == "^"))
-            if not pick.any():
-                continue
-            ax.scatter(
-                x[pick], y[pick], s=scale, marker=marker, linewidths=0,
-                color=VOLCANO_COLORS[name], label=legend.get(name) if marker == "o" else None,
-            )
+        pick = category == name
+        if not pick.any():
+            continue
+        ax.scatter(
+            x[pick], y[pick], s=8, marker="o", linewidths=0,
+            color=VOLCANO_COLORS[name], label=legend.get(name),
+        )
 
     # The published panels name the called-out genes that have something to
     # print — not the hypothetical proteins, and not the ribosomal ones, which
