@@ -171,11 +171,16 @@ def figure_1f(adata):
 # ---------------------------------------------------------------------- Fig 1G
 
 
-def figure_1g(adata):
-    """CST1/SRS44 expression per cluster."""
+def figure_1g(adata, seed: int = 0):
+    """CST1/SRS44 expression per cluster.
+
+    The overlaid points are jittered, which draws on the global numpy RNG; the
+    seed keeps successive renders byte-identical.
+    """
     subset = in_vivo(adata)
     ordered = subset.obs.sort_values("nr_cluster", kind="stable").index
     _, gene_id = FIG1F_GENE
+    np.random.seed(seed)
     ax = sc.pl.violin(
         subset[ordered].copy(),
         gene_id,
