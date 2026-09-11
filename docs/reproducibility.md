@@ -228,12 +228,16 @@ input and the historical selection calculation is not reproduced here.
 
 ## Not included
 
-**Supplementary Figure 2A–F** contains external Benke/ToxoDB time-course data.
-**Supplementary Figure 1B/C** contains expression maps from this dataset, not
-external time courses. Those maps and the computational Figure 3 panels remain
-outside the current registered panel list.
+**Supplementary Figure 2A–F** (cell-cycle-dependent expression of marker genes)
+is not derived from this dataset at all — the caption attributes it to Benke et
+al., mined from ToxoDB.
 
-## Enolase gene labels
+An earlier version of this page said that of *Supplementary Figure 1B–F*. That
+was wrong twice over: Supplementary Figure 1 has only panels A, B and C, and 1B
+and 1C are eleven per-gene expression UMAPs drawn from this dataset — the same
+panel type as Figure 1E. They are a gap in this repository, not out of scope.
+
+## The enolase labels — the figure is right
 
 The repository uses the following gene labels, consistent with the manuscript
 and the deposited gene metadata:
