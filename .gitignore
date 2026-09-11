@@ -1,0 +1,15 @@
+# Python
+__pycache__/
+*.py[oc]
+.venv/
+build/
+dist/
+*.egg-info
+
+# Rendered figures are committed; scratch renders are not
+figures/scratch/
+
+# Editor / OS
+.idea/
+.vscode/
+.DS_Store
