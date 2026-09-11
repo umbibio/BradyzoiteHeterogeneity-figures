@@ -39,10 +39,10 @@ Drawn from the deposited data:
 * **Supplementary 1A** — all cluster markers per cluster
 * **Supplementary 4** — cell-cycle regulators per phase, common (CCC) and modified (MCC) cell cycles
 * **Supplementary 5A / 5B / 5D** — in vivo clusters, in vitro transferred identities, srs22a
+* **Supplementary 5C / 5E / 5F** — the three differential-expression volcanoes
 
-Not regenerated, for reasons given in `docs/reproducibility.md`: **Figure 1D**
-(recorded constant) and the **Supplementary 5C / 5E / 5F** volcano plots
-(the underlying gene set is not in the deposited object).
+Not regenerated, for the reason given in `docs/reproducibility.md`: **Figure 1D**,
+a recorded constant.
 
 ## The data
 
@@ -61,6 +61,12 @@ for the expression matrix, gzipped CSV for the cell and gene metadata and the
 embeddings, JSON for the palettes — alongside an `.h5ad` for convenience. Either
 route loads through `bzfig.data.load_dataset`.
 
+A second, narrow matrix carries the 152 genes that were filtered out of the
+deposited object before it was saved — the unplaced contigs, with the apicoplast
+and mitochondrial transcripts on them. Only the volcano panels need it, through
+`bzfig.data.load_extra_genes`; `bzfig.de` puts the two matrices side by side to
+get back the gene universe the published test ran on.
+
 `scripts/export_dataset.py` documents how the deposited dataset was cut down from
 the full analysis object.
 
@@ -69,7 +75,7 @@ the full analysis object.
 ```
 data/           deposited input (LFS) + MANIFEST.json
 scripts/        fetch_data.py, make_figures.py, export_dataset.py
-src/bzfig/      panels.py, constants.py, scatter3d.py, data.py
+src/bzfig/      panels.py, constants.py, scatter3d.py, data.py, de.py
 figures/        rendered output
 docs/           reproducibility notes, open questions
 preview/        self-contained HTML preview of every panel

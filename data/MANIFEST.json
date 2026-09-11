@@ -25,6 +25,57 @@
       "mtx_gz_bytes": 18948763
     }
   ],
+  "extra_genes": {
+    "n_vars": 152,
+    "sources": {
+      "counts_10x_h5": "/home/agent/workspaces/BradyzoiteHeterogeneity-methods/data/non-reactivated_v65.h5",
+      "counts_h5ad": "/home/agent/workspaces/BradyzoiteHeterogeneity-methods/data/011_me49_filtered.h5ad",
+      "annotation_gff": "/home/agent/workspaces/BradyzoiteHeterogeneity-methods/data/input/genome/annotations/ToxoDB-65_TgondiiME49.gff"
+    },
+    "universe": {
+      "toxodb_65_genes": 8322,
+      "deposited_genes": 8170,
+      "extra_genes": 152
+    },
+    "contigs": {
+      "n_contigs": 100,
+      "genes_per_contig_where_more_than_one": {
+        "KE138841": 30,
+        "KE138866": 4,
+        "KE138868": 4,
+        "KE139140": 4,
+        "KE139818": 3,
+        "KE138892": 3,
+        "KE139130": 3,
+        "KE138862": 2,
+        "KE138874": 2,
+        "KE139705": 2,
+        "KE139844": 2,
+        "KE138872": 2,
+        "KE139135": 2,
+        "KE139434": 2,
+        "KE139435": 2
+      }
+    },
+    "normalisation": "log1p(1e4 * counts / total counts of that cell in its source object), float32; the same recipe and the same per-cell totals as the deposited logcounts layer",
+    "row_order": "same as obs.csv.gz",
+    "counts_match_deposited_raw_counts": true,
+    "deposited_logcounts_max_abs_diff": {
+      "per source object": 4.76837158203125e-07,
+      "all 8322 genes": 0.005278110504150391,
+      "the 8170 deposited genes": 0.26978397369384766
+    },
+    "deposited_logcounts_diff_note": "how closely each denominator reproduces the deposited logcounts layer on the 8170 genes it holds. The per-source-object totals are within one float32 ulp; a single 8322-gene total is wrong for the me49 cells, whose source object has 8496 genes; the 8170-gene total -- all the deposited object can offer -- is wrong for every cell, which is why the published DE could not be reproduced from it",
+    "stored_entries": 86934,
+    "layer": "logcounts_extra",
+    "dtype_source": "float32",
+    "dtype_written": "float32",
+    "true_nonzeros": 86934,
+    "explicit_zeros": 0,
+    "density": 0.07098600105824944,
+    "mtx_uncompressed_bytes": 1594197,
+    "mtx_gz_bytes": 400201
+  },
   "optional_layers": {
     "logcounts_scaled": {
       "layer": "logcounts_scaled",
@@ -329,8 +380,56 @@
       "bit_identical_float32": true,
       "h5ad_varm": "identical"
     },
+    "extra_genes": {
+      "shape": [
+        8057,
+        152
+      ],
+      "stored_entries": 86934,
+      "source_dtype": "float32",
+      "max_abs_diff": 0.0,
+      "bit_identical": true
+    },
     "extra_files": {
       "supp1a_marker_genes.csv": "byte-identical to source"
+    },
+    "supplementary_5_de": {
+      "5C": {
+        "up": 666,
+        "down": 1441,
+        "published": {
+          "up_in_vivo": 664,
+          "down_in_vivo": 1443
+        },
+        "genes_detected_in_both_groups": 7657,
+        "log2fc_range": [
+          -10.988846778869629,
+          13.796320915222168
+        ]
+      },
+      "5E": {
+        "up": 55,
+        "down": 69,
+        "published": null,
+        "genes_detected_in_both_groups": 8267,
+        "log2fc_range": [
+          -7.964044570922852,
+          9.773768424987793
+        ]
+      },
+      "5F": {
+        "up": 678,
+        "down": 1145,
+        "published": {
+          "up_in_vivo": 676,
+          "down_in_vivo": 1146
+        },
+        "genes_detected_in_both_groups": 7012,
+        "log2fc_range": [
+          -12.188210487365723,
+          13.072794914245605
+        ]
+      }
     }
   },
   "files": [
@@ -346,6 +445,13 @@
       "sha256": "0fc5da9e16f60080481cac11888a4b83c2576a0a54206858a922d74c484be875",
       "bytes": 18948763,
       "description": "MatrixMarket (real, coordinate) log-normalised expression, rows = cells, columns = genes; float32 values written with shortest round-trip decimal representation",
+      "urls": []
+    },
+    {
+      "filename": "logcounts_extra.mtx.gz",
+      "sha256": "432171784199a14fca03928addbb9710278763fb476fa3bce77567f87e55a545",
+      "bytes": 400201,
+      "description": "MatrixMarket (real, coordinate) log-normalised expression of the 152 ToxoDB-65 genes the deposited object does not carry, rows = cells, columns = genes; row order matches obs.csv.gz, column order matches var_extra.csv.gz. Same normalisation as logcounts.mtx.gz, so the two side by side are the 8322-gene universe the published differential expression ran on (bzfig.de)",
       "urls": []
     },
     {
@@ -396,7 +502,14 @@
       "bytes": 76512,
       "description": "Per-gene metadata, index column 'gene_id'; includes gene_name and gene_description",
       "urls": []
+    },
+    {
+      "filename": "var_extra.csv.gz",
+      "sha256": "c4530f00e5b2a7894c36143935f267013bb5561abae0870ce75dcf18de5b9c0d",
+      "bytes": 1814,
+      "description": "Per-gene metadata for logcounts_extra.mtx.gz, index column 'gene_id'; same columns as var.csv.gz. Every one of these genes sits on an unplaced KE* contig",
+      "urls": []
     }
   ],
-  "total_bytes": 34893347
+  "total_bytes": 35295362
 }

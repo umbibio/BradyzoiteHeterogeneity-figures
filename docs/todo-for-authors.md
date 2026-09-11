@@ -8,7 +8,7 @@ it. Nothing here blocks the repository from building the figures.
 
 | | Item | State |
 | --- | --- | --- |
-| 1 | Supplementary 5C/5E/5F volcano plots | Accepted as external — see below |
+| 1 | Supplementary 5C/5E/5F volcano plots | **Resolved — regenerated; two things to confirm** |
 | 2 | Figure 1D unique-marker counts | Accepted as a recorded constant |
 | 3 | Enolase gene assignment | **Resolved — no error in the figure** |
 | 4 | Supplementary Figure 4 reconstruction | Needs a check |
@@ -18,48 +18,61 @@ it. Nothing here blocks the repository from building the figures.
 
 ---
 
-## 1. The differential-expression table behind Supplementary Figure 5C, 5E, 5F
+## 1. The differential expression behind Supplementary Figure 5C, 5E, 5F
 
-**Status:** accepted as external. You have said the genes at the extremes are not
-of particular significance and the panels are fine as they stand, so nothing here
-is blocking — this is a record of why they are not regenerated, and of the one
-thing that would change that.
+**Status:** resolved. The three volcanoes are regenerated from the data package
+and rendered by `scripts/make_figures.py`; no exported table is needed any more.
 
-**Why they cannot be regenerated.** Three independent problems, any one of which
-would be enough:
+**What was wrong before.** The gene universe. The published test ran on all 8322
+ToxoDB-65 genes; the deposited object keeps the 8170 on the nuclear chromosomes,
+and the other 152 — on unplaced `KE*` contigs — carry the apicoplast and
+mitochondrial transcripts (`ORF F`, the cytochrome b's, cytochrome c oxidase III)
+that the panels label at the positive extreme. Without them the fold-change axis
+could not reach +14 and the test was being run on a different question. Those 152
+genes now ship as `logcounts_extra.mtx.gz`, recovered from the two source objects
+the deposited one was integrated from.
 
-- **The gene universe is gone.** Panels C and F label `ORF F`, `cytochrome b`
-  and `cytochrome c` at the positive extreme of the fold-change axis. The
-  deposited object contains only the 14 nuclear chromosomes — the mitochondrial
-  transcripts carrying those points were filtered out before the object was
-  saved. The published test therefore ran on a larger gene set than anything we
-  still have.
-- **The fold-change metric is unknown.** Scanpy's `logfoldchanges` for panel C
-  span −28…+8; the published axis spans about −11…+14. Seurat's default
-  `FindMarkers` spans −5.0…+5.1. Neither is it.
-- **An undocumented filter was applied.** The published volcanoes have an empty
-  band from about −1.7 to +1.9 around zero that the caption does not mention.
+The decisive point is that the deposited object cannot reproduce its own
+normalisation: dividing each cell by its total over the 8170 genes it holds is
+wrong by up to 0.27 in `logcounts`, while dividing by its total in its own source
+object is right to one float32 ulp. Normalisation therefore ran before the gene
+subset, and the test after it.
 
-Fitted threshold combinations can land near the stated counts (705/1460 against
-the published 664/1443), but that is curve-fitting, not reproduction.
+| | Published | Reproduced |
+| --- | --- | --- |
+| 5C up / down in vivo | 664 / 1443 | 666 / 1441 |
+| 5F up / down in vivo | 676 / 1146 | 678 / 1145 |
+| 5E | no counts quoted | 55 / 69 |
 
-**How they are handled.** The three panels are documented as external in
-`docs/reproducibility.md`, with the published counts (664/1443 and 676/1146)
-recorded in `bzfig.constants.SUPP5C_DE_COUNTS` and `SUPP5F_DE_COUNTS`, and the
-cell subsets of each comparison described in prose so anyone can run their own
-test.
+Two genes in each panel, out of two thousand. The full recipe, the evidence for
+the fold-change cutoff of 2, and the fold changes of individual labelled genes
+measured off the printed figure are in `docs/reproducibility.md`.
 
-**The one thing that would change this:** the exported DE table the volcanoes
-were plotted from — one row per gene with gene ID, fold change, p-value and
-adjusted p-value, per comparison. With it the panels become exactly reproducible,
-and it also becomes the source data the publisher wants for them. If it is on a
-disk somewhere it is worth ten minutes of looking; if not, no matter.
+**Your question about "G1" is answered.** It is `cc_phase`, not
+`transferred_cc_phase`: the transferred column gives 673 / 1338 genes for 5F,
+192 off the published 676 / 1146. `cc_phase` puts 1976 in vivo against 280 in
+vitro cells in that comparison.
 
-**Small question, worth answering either way:** for panels 5E and 5F, was "G1"
-taken from `cc_phase` or from `transferred_cc_phase`? The two give very different
-cell counts (280 vs 753 for the in vitro bradyzoites), and the caption does not
-say. This affects how the subsets are described in the methods, independently of
-whether the panels are ever re-plotted.
+**Two things to confirm, neither of them blocking:**
+
+- **ORF F in panel F.** `TGME49_302005` comes out at log2FC +8.41 but
+  pvals_adj = 0.23 in the 5F comparison, so the panel here does not plot it. The
+  published 5F does not label it either — ORF F is labelled in 5C, where it is
+  significant (pvals_adj = 1.7e-04) and lands at +8.30, exactly where the printed
+  panel has it. If your 5F does include a point for ORF F, that one gene is
+  unexplained; an unlabelled point cannot be identified from the printed figure.
+- **Panel E has no published counts.** The caption quotes counts for 5C and 5F
+  but not for 5E, so there is nothing to check 55 / 69 against. The panel agrees
+  with the published one everywhere it can be checked — sag1 at −5.67 and
+  1e-60, sag4 at +9.46, bag1 at +9.77, the helicase at −4.01, the cyst wall
+  points all within 0.02 — but a count from you would settle it.
+
+**One thing worth saying in the methods** if the panels are described again: a
+1.5-fold pre-filter is compatible with everything here but is not the plotted
+cutoff. The empty band around zero measures −1.99 … +2.01, i.e. |log2FC| > 2; a
+1.5-fold cutoff (log2 = 0.585) would put 2326 / 2885 genes on panel C instead of
+664 / 1443. A 1.5-fold pre-filter upstream would change none of the counts,
+since everything it removes the 2.0 cutoff removes as well.
 
 ---
 
@@ -74,8 +87,9 @@ hard-coded in the analysis notebook with no accompanying computation.
 The quantity is evidently "genes that are a significant Wilcoxon marker of
 exactly one cluster". Re-running that on the deposited object gives
 `[37, 94, 84, 861, 18, 52]` — close for clusters 0 and 3, off for the others.
-The gap is almost certainly the gene universe again: the working object had
-**8322** genes, the deposited one has **8170**.
+The gene universe was the suspect, but it is not the answer: now that the full
+8322 genes are shipped (see item 1), the same test on them gives
+`[45, 93, 84, 863, 18, 53]`, which is no closer.
 
 **Decision:** the published values stay as a recorded constant in
 `bzfig.constants.UNIQUE_MARKERS_PER_CLUSTER`, and the panel is drawn from them.

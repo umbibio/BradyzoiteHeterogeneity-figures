@@ -1,9 +1,11 @@
 """One function per published panel.
 
-Each returns a matplotlib figure drawn from the deposited data alone. Panel
-assembly — the grid layout, the row labels beside Figure 1E, the letter labels,
-the in-plot cluster numbers — was done in a vector editor and is not reproduced
-here; these are the individual panels as the analysis produced them.
+Each returns a matplotlib figure drawn from the shipped data alone — for the
+Supplementary 5 volcanoes that includes the extra genes the deposited object
+dropped, which :mod:`bzfig.de` folds back in. Panel assembly — the grid layout,
+the row labels beside Figure 1E, the letter labels, the in-plot cluster numbers —
+was done in a vector editor and is not reproduced here; these are the individual
+panels as the analysis produced them.
 """
 
 from __future__ import annotations
@@ -14,6 +16,7 @@ import pandas as pd
 import scanpy as sc
 import seaborn as sns
 
+from . import de
 from .constants import (
     CLUSTER_COLORS,
     EXPRESSION_CMAP,
@@ -26,8 +29,13 @@ from .constants import (
     PHASES,
     SUPP4_GENES,
     SUPP5D_GENE,
+    SUPP5E_CYST_WALL_GENES,
     UNIQUE_MARKERS_PER_CLUSTER,
+    VOLCANO_AXES,
+    VOLCANO_COLORS,
+    VOLCANO_LABEL_RANGE,
 )
+from .data import DATA
 from .scatter3d import AZIMUTH, ELEVATION, plot_3d_preview
 
 UMAP_KEY = "3d_umap_harmony_integration"
@@ -284,3 +292,129 @@ def supplementary_5d(adata):
     """srs22a expression across the in vivo bradyzoites."""
     label, gene_id = SUPP5D_GENE
     return _gene_umap(in_vivo(adata), gene_id, label)
+
+
+# ------------------------------------------------------- Supp 5 volcano panels
+
+
+def _gene_label(row) -> str:
+    """What the published panels print beside a called-out point."""
+    if row["gene_name"]:
+        return str(row["gene_name"]).lower()
+    text = str(row["gene_description"]).split(",")[0].split("(")[0].strip()
+    return text if len(text) <= 22 else text[:21] + "…"
+
+
+def _volcano(table: pd.DataFrame, panel: str):
+    """One volcano: every significant gene, called-out ones coloured and named.
+
+    The published panels colour their points by gene class rather than by
+    significance, and only the genes the caption calls out are coloured at all —
+    colouring every hypothetical protein would turn half of 5C pink. Points
+    whose adjusted p-value falls off the top of the published axis are drawn on
+    the axis as triangles rather than dropped.
+    """
+    axes = VOLCANO_AXES[panel]
+    low, high = VOLCANO_LABEL_RANGE[panel]
+    comparison = de.COMPARISONS[panel]
+
+    points = table[table["significant"]]
+    x = points["log2fc"].to_numpy()
+    with np.errstate(divide="ignore"):
+        y = -np.log10(points["pval_adj"].to_numpy())
+    off_scale = y > axes["ymax"]
+    y = np.minimum(y, axes["ymax"])
+
+    called_out = (x < low) | (x > high)
+    ribosomal = points["gene_description"].str.contains("ribosomal protein").to_numpy()
+    cyst_wall = (
+        points["gene_id"].isin(SUPP5E_CYST_WALL_GENES).to_numpy()
+        if panel == "5E"
+        else np.zeros(len(points), dtype=bool)
+    )
+    category = np.where(
+        cyst_wall,
+        "cyst wall protein",
+        np.where(
+            called_out & ribosomal,
+            "ribosomal protein",
+            np.where(called_out, "called out", "other"),
+        ),
+    )
+    legend = {
+        "called out": f"log2FC > {high:g} or < {low:g}",
+        "ribosomal protein": "ribosomal protein",
+        "cyst wall protein": "cyst wall protein",
+    }
+
+    figure, ax = plt.subplots(figsize=(11, 3.6))
+    for name in ("other", "ribosomal protein", "cyst wall protein", "called out"):
+        for marker, scale in (("o", 8), ("^", 9)):
+            pick = (category == name) & (off_scale == (marker == "^"))
+            if not pick.any():
+                continue
+            ax.scatter(
+                x[pick], y[pick], s=scale, marker=marker, linewidths=0,
+                color=VOLCANO_COLORS[name], label=legend.get(name) if marker == "o" else None,
+            )
+
+    # The published panels name the called-out genes that have something to
+    # print — not the hypothetical proteins, and not the ribosomal ones, which
+    # are what the grey is for. Names are nudged apart from the bottom up, since
+    # the called-out genes crowd into a narrow band on the negative side.
+    named = [
+        (px, py, _gene_label(row))
+        for (_, row), px, py in zip(points.iterrows(), x, y)
+        if (px < low or px > high)
+        and row["gene_description"] != "hypothetical protein"
+        and "ribosomal protein" not in row["gene_description"]
+    ]
+    for on_the_left in (True, False):
+        column = sorted(
+            (item for item in named if bool(item[0] < 0) == on_the_left), key=lambda i: i[1]
+        )
+        placed = -np.inf
+        for px, py, text in column:
+            placed = max(py, placed + 0.045 * axes["ymax"])
+            ax.annotate(
+                text,
+                (px, py),
+                xytext=(px - 0.3 if on_the_left else px + 0.3, placed),
+                textcoords="data",
+                ha="right" if on_the_left else "left",
+                va="center",
+                fontsize=5,
+                style="italic",
+                arrowprops={"arrowstyle": "-", "linewidth": 0.3, "color": "0.65",
+                            "shrinkA": 0, "shrinkB": 1},
+            )
+
+    ticks = list(range(0, axes["ymax"] + 1, axes["ystep"]))
+    ax.set_xlim(*axes["xlim"])
+    ax.set_xticks(list(axes["xticks"]))
+    ax.set_ylim(0, axes["ymax"] * 1.02)
+    ax.set_yticks(ticks)
+    ax.set_yticklabels([f"$10^{{{-tick}}}$" for tick in ticks])
+    ax.set_xlabel("log2 fold change")
+    ax.set_ylabel("pval adj")
+    ax.set_title(f"{comparison.label_a} vs {comparison.label_b}", fontsize=10)
+    ax.spines[["top", "right"]].set_visible(False)
+    if len(ax.collections) > 1:
+        ax.legend(loc="upper right", frameon=False, fontsize=6, markerscale=1.5)
+    figure.tight_layout()
+    return figure
+
+
+def supplementary_5c(adata, datadir=DATA):
+    """In vivo against in vitro bradyzoites — 664 up / 1443 down in the paper."""
+    return _volcano(de.volcano_table(adata, "5C", datadir), "5C")
+
+
+def supplementary_5e(adata, datadir=DATA):
+    """In vitro bradyzoite G1 against in vitro tachyzoite G1 — no published counts."""
+    return _volcano(de.volcano_table(adata, "5E", datadir), "5E")
+
+
+def supplementary_5f(adata, datadir=DATA):
+    """In vivo against in vitro bradyzoite G1 — 676 up / 1146 down in the paper."""
+    return _volcano(de.volcano_table(adata, "5F", datadir), "5F")

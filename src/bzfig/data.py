@@ -14,6 +14,9 @@ The ``logcounts_scaled`` layer that the expression panels are drawn from is not
 shipped as a matrix. It is ``logcounts`` multiplied by a per-(dataset, gene)
 factor, and reconstructing it that way is bit-identical in float32 while saving
 60 MB. :func:`scaled_layer` does the reconstruction.
+
+The 152 genes that were filtered out of the deposited object before it was saved
+ride alongside in their own small matrix; :func:`load_extra_genes` reads it.
 """
 
 from __future__ import annotations
@@ -179,6 +182,24 @@ def load_dataset(datadir: Path = DATA, source: str = "standard") -> AnnData:
     if source == "h5ad":
         return _apply_cluster_palette(_load_h5ad(datadir))
     raise ValueError(f"source must be 'standard' or 'h5ad', not {source!r}")
+
+
+def load_extra_genes(datadir: Path = DATA) -> tuple[sp.csr_matrix, pd.DataFrame]:
+    """The 152 genes on unplaced contigs that the deposited object drops.
+
+    Same cells in the same order as ``obs.csv.gz``, and normalised the same way
+    as ``logcounts``, so the two matrices sit side by side as the 8322-gene
+    universe the published differential expression ran on. Only the
+    Supplementary 5 volcano panels need them; :mod:`bzfig.de` does the widening.
+    """
+    datadir = Path(datadir)
+    manifest = read_manifest(datadir)
+    var = pd.read_csv(datadir / "var_extra.csv.gz", index_col="gene_id", dtype="str").fillna("")
+    n_vars = manifest["extra_genes"]["n_vars"]
+    if len(var) != n_vars:
+        raise ValueError(f"var_extra.csv.gz: expected {n_vars} genes, got {len(var)}")
+    matrix = _read_matrix(datadir / "logcounts_extra.mtx.gz", manifest["n_obs"], n_vars)
+    return matrix, var
 
 
 def load_supp1a_markers(datadir: Path = DATA) -> pd.Index:

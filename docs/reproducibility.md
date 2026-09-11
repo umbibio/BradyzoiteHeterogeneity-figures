@@ -45,6 +45,158 @@ but the values only span **−1.77…+1.79**, and the CCC group is thinly popula
 (G1a 11, G1b 230, S 106, M 56, C 44 cells), so several genes are detected in one
 phase only and their rows sit at the one-hot extremes of ±1.789 / −0.447.
 
+## Reproduced from a wider gene set — the volcano plots
+
+**Supplementary Figure 5C, 5E and 5F.**
+
+These were written off here as not reproducible. They are reproducible: the
+published test ran on the full **8322-gene** ToxoDB-65 universe, and the
+deposited object has **8170** genes. The missing 152 all sit on unplaced `KE*`
+contigs, and among them are the apicoplast and mitochondrial transcripts — ORF F,
+two cytochrome b's, cytochrome c oxidase III — that the published panels label at
+the positive extreme. They now ship beside the deposited matrix as
+`logcounts_extra.mtx.gz` (8057 cells x 152 genes, 86,934 stored values, 391 KB)
+and `var_extra.csv.gz`; `bzfig.de` puts the two matrices side by side and runs
+the test.
+
+The recipe:
+
+```
+universe     all 8322 ToxoDB-65 genes (logcounts.mtx.gz + logcounts_extra.mtx.gz)
+test         sc.tl.rank_genes_groups(groups=[A], reference=B, method="wilcoxon",
+                                     tie_correct=False)
+filter       genes whose mean expm1(logcounts) is > 0 in *both* groups
+significant  pvals_adj < 0.05                      (bzfig.constants.DE_ALPHA)
+cutoff       |logfoldchanges| > 2                  (bzfig.constants.DE_LOG2FC_CUTOFF)
+```
+
+| | Published | Reproduced |
+| --- | --- | --- |
+| 5C up / down in vivo | 664 / 1443 | **666 / 1441** |
+| 5C log2FC extremes | −10.40 … +13.79 (measured) | −10.99 … +13.80 |
+| 5E up / down | not quoted | 55 / 69 |
+| 5E log2FC extremes | −5.68 … +9.77 (measured) | −7.96 … +9.77 |
+| 5F up / down in vivo | 676 / 1146 | **678 / 1145** |
+| 5F log2FC extremes | −12.20 … +13.13 (measured) | −12.19 … +13.07 |
+
+The published extremes were measured off the printed figure at 300 dpi against
+the axis ticks (60.35 px per log2 unit in 5C, 50.1 in 5F). Individual called-out
+points land within 0.06 of the reproduced fold change — sag1 at −10.40 against
+−10.42 in 5C, srs22a at +8.19 against +8.19, ORF F at +8.30 against +8.30,
+cytochrome c oxidase III at +13.79 against +13.80. The extremes disagree, and in every case
+because the *measurement* cannot see the point, not because the reproduction
+puts one where the figure has none. Checking each gene that falls outside a
+measured extreme:
+
+* **5C**, one gene: a hypothetical protein at −10.99 whose adjusted p-value
+  underflows to zero, so it is drawn as a triangle at the axis top — and the
+  point detector keeps only components with circularity > 0.65, which excludes
+  triangles by construction.
+* **5E**, thirteen genes between −7.96 and −5.71, every one of them with an
+  adjusted p-value between 0.7 and 1.0. They sit on the x-axis baseline, which is
+  the line the detector uses to calibrate the axis; a point printed on that line
+  merges with it.
+* **5F**, none at all — and its negative extreme, the one case with no low-y or
+  off-axis points involved, matches to the last digit printed (−12.19 against a
+  measured −12.20).
+
+So the measured extremes are a lower bound on the plotted range, and the pattern
+of where they fall short is exactly what the detector's two blind spots predict.
+5F's positive extreme is the residual: +13.07 reproduced against +13.53 measured,
+with no reproduced gene beyond +13.13, which points at calibration error on a
+single isolated point rather than a missing gene.
+
+**The subsets.** `orig_ident` carries all three cohorts (Nonreactivated 6505,
+me49 Day 3 950, me49 Day 0 602).
+
+| Panel | Group A (numerator) | Group B (reference) |
+| --- | --- | --- |
+| 5C | in vivo bradyzoites, `Nonreactivated` (6505) | in vitro bradyzoites, `me49 Day 3` (950) |
+| 5E | in vitro bradyzoite G1, `me49 Day 3` (280) | in vitro tachyzoite G1, `me49 Day 0` (272) |
+| 5F | in vivo bradyzoite G1, `Nonreactivated` (1976) | in vitro bradyzoite G1, `me49 Day 3` (280) |
+
+"G1" is `cc_phase` in G1a or G1b, not `transferred_cc_phase`: the transferred
+column gives 4547 against 753 cells for 5F and **673 / 1338** genes, 192 off the
+published 676 / 1146. That closes a question this page used to leave open.
+
+### Why the 8322-gene universe is the right one
+
+Normalisation ran *before* the gene subset, and per source object: each cell
+divided by its own total over that object's full gene set, scaled to 1e4 and
+`log1p`'d. Applied to the 8170 genes the deposited object kept, that reproduces
+its `logcounts` layer to within one float32 ulp. Nothing else does.
+
+| Denominator | Largest difference from the deposited `logcounts` |
+| --- | --- |
+| each cell's total in its own source object — 8322 genes for the in vivo 10x run, 8496 for the me49 object | **4.8e-07**, one float32 ulp |
+| one 8322-gene total for every cell | 5.3e-03 — wrong for the me49 cells |
+| the 8170 deposited genes | 0.27 — wrong for every cell |
+
+The last row is the point: the deposited object cannot reproduce its own
+normalisation, so the published test ran on something wider.
+`scripts/export_dataset.py` measures all three on every run, records them in
+`MANIFEST.json` under `extra_genes`, and refuses to write the package if the
+first row stops holding.
+
+### Why the cutoff is 2, and why the both-groups filter is not a free parameter
+
+All three published panels have a clean empty band around zero — a zero-ink
+rectangle spanning the full height, not a thinning. Measured at 600 dpi its edges
+are −1.99 / +2.01 (5C), −2.20 / +2.23 (5E) and −2.02 / +2.03 (5F): the cutoff was
+applied to the plotted fold change, and it is 2.0. A 1.5-fold cutoff (log2 =
+0.585) is excluded by that measurement and by the counts — it gives 2326 up /
+2885 down for 5C against a published 664 / 1443. It could still have been an
+upstream pre-filter: a gene that fails |log2FC| > 0.585 also fails |log2FC| > 2,
+so a 1.5-fold pre-filter would change none of these numbers.
+
+The both-groups filter is forced rather than tuned. Scanpy scores a gene with a
+zero group mean against a 1e-9 pseudocount, which drops it into a degenerate
+bucket: without the filter 5C's `logfoldchanges` run −28.19 … +18.24 and the down
+count goes from 1441 to 1879, while the up count does not move at all. Dropping
+exactly the genes undetected in one group restores the published axis range with
+nothing left to choose.
+
+### What is *not* reproduced
+
+* **The point colouring is only partly rule-derivable.** The published legends
+  say pink = hypothetical protein and grey = ribosomal protein (blue = cyst wall
+  protein in 5E), but the pink is applied to the *called-out* genes only: 1024 of
+  5C's 2107 plotted genes are hypothetical proteins and the published panel has
+  about 25 pink points, several of them named genes (sag1, srs2, srs22a, the
+  cytochromes). The panels here colour the called-out set — the genes beyond the
+  caption's annotation thresholds — pink, except ribosomal proteins, which are
+  grey; that rule puts grey on exactly the five points the published 5F has grey.
+  5E's blue set is not derivable at all (two of its genes are a dense granule and
+  a rhoptry protein), so the eight genes were read back off the published panel
+  by matching points to fold changes, and are recorded in
+  `bzfig.constants.SUPP5E_CYST_WALL_GENES`.
+* **The labels.** The caption's rule — annotate above log2FC 8 or below −7 for
+  5C, 6 and −4 for 5E — is what `bzfig.constants.VOLCANO_LABEL_RANGE` uses (5F's
+  caption gives no rule; its labelled genes fit 5C's). The published panels also
+  label a hand-picked set of transcription factors (bfd1, the ap2s) and the two
+  enolases, which no threshold recovers, and shorten long descriptions by hand.
+* **Points off the top of the axis.** The published y limits are 1e-100, 1e-60
+  and 1e-200, which is what these panels use. 100 of 5C's 2107 points have an
+  adjusted p-value below 1e-100 — 20 of them underflow float64 to zero — and are
+  drawn as triangles on the axis top rather than dropped. 5E and 5F have none.
+* **ORF F in 5F.** `TGME49_302005` reaches log2FC +8.41 there but only
+  pvals_adj = 0.23, so it is not among the plotted genes. The published 5F does
+  not label it either; it labels ORF F in 5C, where the reproduction gives
+  pvals_adj = 1.7e-04 and puts the point at +8.30, which is where the published
+  panel has it. If the published 5F does plot a point for ORF F, that one gene is
+  unexplained — an unlabelled point cannot be identified from a printed figure.
+* **5E has no published counts** to check against, and its negative extreme
+  cannot be checked either, for the reason given above. It is validated instead
+  by its called-out genes, which land where the published panel has them: sag1 at −5.67 (published −5.68, both at 1e-60), sag4/srs35a at +9.46,
+  bag1 at +9.77, the helicase at −4.01, the CMGC kinase at +6.23, and every one
+  of the blue cyst wall points within 0.02 of a published point.
+
+`scripts/export_dataset.py` re-runs all three comparisons from the data package
+it has just written and fails if the counts move. They are recorded in the
+manifest under `verification.supplementary_5_de` and in
+`bzfig.constants.SUPP5_DE_COUNTS_REPRODUCED`; the published counts stay in
+`SUPP5C_DE_COUNTS` and `SUPP5F_DE_COUNTS`.
+
 ## Not reproducible — recorded as constants
 
 **Figure 1D**, "# Unique markers/Cluster" (38 / 93 / 80 / 881 / 14 / 47).
@@ -59,47 +211,14 @@ Re-running that test on the deposited object gives `[37, 94, 84, 861, 18, 52]`:
 | Published | 38 | 93 | 80 | 881 | 14 | 47 |
 | Re-derived here | 37 | 94 | 84 | 861 | 18 | 52 |
 
-The differences are small and go in both directions, which is what a 152-gene
-difference in the universe would do; nothing suggests a different test. The
-published values are kept in `bzfig.constants.UNIQUE_MARKERS_PER_CLUSTER` and the
+The differences are small and go in both directions, and nothing suggests a
+different test. The gene universe is no longer an explanation, though: re-running
+the same test on the full 8322 genes now that they are shipped gives
+`[45, 93, 84, 863, 18, 53]`, which is not closer. Whatever fixed these six
+numbers is still missing. The published values are kept in
+`bzfig.constants.UNIQUE_MARKERS_PER_CLUSTER` and the
 panel is drawn from them, so the rendered panel matches the paper exactly. If the
 original cell turns up, the constant can be replaced by the computation.
-
-**Supplementary Figure 5C, 5E and 5F** — the three volcano plots.
-
-These are not regenerated. Three independent reasons:
-
-1. **The gene universe is wrong.** Panels C and F label `ORF F`, `cytochrome b`
-   and `cytochrome c` at the positive extreme. The deposited object contains only
-   the 14 nuclear chromosomes (`var["seqid"]`), so the mitochondrial transcripts
-   carrying those points are absent. The published test ran before that
-   reduction.
-2. **The fold-change metric is not scanpy's.** Scanpy's `logfoldchanges` for
-   panel C span −28…+8; the published axis spans about −11…+14. A log2 ratio of
-   mean normalised expression with a small pseudocount reproduces the negative
-   extreme and the labelled genes well, but cannot reach +14 without the
-   mitochondrial genes.
-3. **An additional fold-change filter was applied** that is not described in the
-   caption — the published volcanoes have an empty band from about −1.7 to +1.9.
-   Threshold combinations can be fitted to land near the stated counts (705/1460
-   against a target of 664/1443), but no round-number threshold reproduces both
-   panels, so any such choice would be fitted rather than derived.
-
-No differential-expression code for these panels exists in the analysis
-repository; the volcanoes were drawn in a separate plotting program from an
-exported table that was not kept. The published counts are recorded in
-`bzfig.constants.SUPP5C_DE_COUNTS` and `SUPP5F_DE_COUNTS`.
-
-The subsets are documented, for anyone who wants to run their own test:
-
-| Panel | Group A | Group B |
-| --- | --- | --- |
-| 5C | in vivo bradyzoites (6505) | in vitro bradyzoites, me49 Day 3 (950) |
-| 5E | in vitro bradyzoite G1 | in vitro tachyzoite G1, me49 Day 0 |
-| 5F | in vivo bradyzoite G1 | in vitro bradyzoite G1 |
-
-For 5E and 5F it is undetermined whether G1 was taken from `cc_phase` or
-`transferred_cc_phase`.
 
 ## Not included
 

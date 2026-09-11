@@ -31,20 +31,37 @@ REPO = Path(__file__).resolve().parent.parent
 FORMATS = ("png", "svg", "pdf")
 DPI = 300
 
+# Two things make a render differ from the one before it whatever the panel
+# draws: matplotlib stamps SVG and PDF with the time of the run, and salts the
+# element ids it puts in SVGs with a per-process random value. Dropping the
+# stamp and pinning the salt makes all three formats byte-reproducible.
+matplotlib.rcParams["svg.hashsalt"] = "bzfig"
+METADATA = {"pdf": {"CreationDate": None}, "svg": {"Date": None}}
+
 
 def save(figure, outdir: Path, name: str, formats) -> list[Path]:
     outdir.mkdir(parents=True, exist_ok=True)
     written = []
     for extension in formats:
         path = outdir / f"{name}.{extension}"
-        figure.savefig(path, dpi=DPI, bbox_inches="tight", facecolor=figure.get_facecolor())
+        figure.savefig(
+            path,
+            dpi=DPI,
+            bbox_inches="tight",
+            facecolor=figure.get_facecolor(),
+            metadata=METADATA.get(extension),
+        )
         written.append(path)
     plt.close(figure)
     return written
 
 
-def build(adata, markers: pd.Index) -> dict[str, callable]:
-    """Panel name -> zero-argument callable returning a figure."""
+def build(adata, markers: pd.Index, datadir: Path) -> dict[str, callable]:
+    """Panel name -> zero-argument callable returning a figure.
+
+    The volcano panels need *datadir* as well: they widen the matrix back to the
+    8322-gene universe with the extra genes shipped beside it.
+    """
     supp4 = panels.supplementary_4_matrices(adata)
     jobs = {
         "Figure_1B_umap": lambda: panels.figure_1b_umap(adata),
@@ -64,7 +81,10 @@ def build(adata, markers: pd.Index) -> dict[str, callable]:
         "Supplementary_5A_cells_per_cluster": lambda: panels.supplementary_5a_counts(adata),
         "Supplementary_5B_umap": lambda: panels.supplementary_5b_umap(adata),
         "Supplementary_5B_cells_per_cluster": lambda: panels.supplementary_5b_counts(adata),
+        "Supplementary_5C_volcano": lambda: panels.supplementary_5c(adata, datadir),
         "Supplementary_5D_srs22a": lambda: panels.supplementary_5d(adata),
+        "Supplementary_5E_volcano": lambda: panels.supplementary_5e(adata, datadir),
+        "Supplementary_5F_volcano": lambda: panels.supplementary_5f(adata, datadir),
     }
     for group, label, gene_id in panels.FIG1E_GENES:
         safe = label.replace(" ", "_")
@@ -85,7 +105,7 @@ def main() -> int:
 
     adata = load_dataset(args.data)
     markers = load_supp1a_markers(args.data)
-    jobs = build(adata, markers)
+    jobs = build(adata, markers, args.data)
 
     if args.list:
         for name in jobs:

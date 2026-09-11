@@ -14,6 +14,11 @@ CLUSTER_COLORS = ["#e0007a", "#4f7f6a", "#9c7c38", "#6f5e8d", "#00a6d6", "#7d5a5
 # Cell cycle phases, in plotting order.
 PHASES = ["G1a", "G1b", "S", "M", "C"]
 
+# The two phases the published "G1" subsets of Supplementary 5E and 5F are made
+# of, taken from obs["cc_phase"] (not transferred_cc_phase: that gives 4547 vs
+# 753 cells for 5F and 673/1338 genes, against a published 676/1146).
+G1_PHASES = ("G1a", "G1b")
+
 # Expression colour scale shared by every per-gene UMAP panel (Fig 1E, 1F, Supp 5D).
 # vmin is -vmax * 0.2; vmax is pinned to 5 regardless of the data range.
 EXPRESSION_CMAP = "PuRd"
@@ -34,10 +39,72 @@ HEATMAP_VMAX = 6
 UNIQUE_MARKERS_PER_CLUSTER = {0: 38, 1: 93, 2: 80, 3: 881, 4: 14, 5: 47}
 
 # Supplementary Figure 5C and 5F differential-expression counts, quoted in the
-# published caption. The volcano panels themselves are not reproducible from the
-# deposited object -- see docs/reproducibility.md.
+# published caption. bzfig.de reproduces them to within two genes -- see
+# docs/reproducibility.md.
 SUPP5C_DE_COUNTS = {"up_in_vivo": 664, "down_in_vivo": 1443}
 SUPP5F_DE_COUNTS = {"up_in_vivo": 676, "down_in_vivo": 1146}
+
+# Significance and fold-change cutoffs for the Supplementary 5 volcano panels.
+#
+# DE_ALPHA is the caption's own ("only displayed are those with a p value <
+# 0.05 from a Wilcoxon rank-sum test"); the axis is adjusted p, so it is applied
+# to pvals_adj. DE_LOG2FC_CUTOFF is not stated anywhere, but every published
+# panel has an empty band around zero, measured on the printed 5C axis at
+# -1.9..+1.9 (300 dpi, 60.35 px per log2 unit). 2.0 reproduces the published
+# counts to within two genes in both panels that quote them; a 1.5-fold cutoff
+# (log2 = 0.585) would give 2326 up / 2885 down for 5C against 664 / 1443.
+DE_ALPHA = 0.05
+DE_LOG2FC_CUTOFF = 2.0
+
+# What bzfig.de produces from the shipped data package, "up" meaning higher in
+# group A. Recorded so that a change in the data or in scanpy shows up as a
+# failed check in scripts/export_dataset.py; 5E has no published counts.
+SUPP5_DE_COUNTS_REPRODUCED = {
+    "5C": {"up": 666, "down": 1441},
+    "5E": {"up": 55, "down": 69},
+    "5F": {"up": 678, "down": 1145},
+}
+
+# Volcano panel axes, measured off the published figure at 300 dpi from the tick
+# spacing and the ends of the axis lines. The y axis is adjusted p on a reversed
+# log scale, labelled in powers of ten.
+VOLCANO_AXES = {
+    "5C": {"xlim": (-12.1, 14.1), "xticks": (-10, 0, 10), "ymax": 100, "ystep": 20},
+    "5E": {"xlim": (-11.0, 15.1), "xticks": (-10, -5, 0, 5, 10, 15), "ymax": 60, "ystep": 20},
+    "5F": {"xlim": (-16.3, 15.1), "xticks": (-10, 0, 10), "ymax": 200, "ystep": 50},
+}
+
+# Which genes the published panels call out. The caption gives the rule for 5C
+# ("all genes with a log2fold change > 8 or <-7 are annotated") and for 5E
+# ("log2FC > 6 or < -4"); 5F states none and its labelled genes fit 5C's rule.
+# The published panels additionally label a hand-picked set of transcription
+# factors (bfd1, the ap2s) and the two enolases, which no rule recovers.
+VOLCANO_LABEL_RANGE = {"5C": (-7.0, 8.0), "5E": (-4.0, 6.0), "5F": (-7.0, 8.0)}
+
+# Point colours, from the published legends: the called-out genes are pink,
+# except ribosomal proteins, which are grey, and the cyst wall proteins of
+# panel 5E, which are blue. Everything else is black.
+VOLCANO_COLORS = {
+    "other": "#000000",
+    "called out": "#fc4ba0",
+    "ribosomal protein": "#aaaaaf",
+    "cyst wall protein": "#76b8fd",
+}
+
+# The genes drawn blue in the published 5E. There is no cyst wall protein list
+# in the data or the paper (two of these are a dense granule and a rhoptry
+# protein), so the set was read back off the published panel by matching the
+# blue points to their fold changes -- the same way the Figure 1C row-group
+# bands were recovered.
+SUPP5E_CYST_WALL_GENES = [
+    "TGME49_209755",
+    "TGME49_213067",
+    "TGME49_242110",
+    "TGME49_251540",
+    "TGME49_260520",
+    "TGME49_264660",
+    "TGME49_312330",
+]
 
 # Figure 1E / 1F genes. The label is the one printed on the panel.
 #

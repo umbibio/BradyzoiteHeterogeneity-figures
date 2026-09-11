@@ -45,6 +45,13 @@ Package layout
 ``logcounts_scaled_factors.csv.gz``
     Long-form ``dataset,gene_id,factor`` table (float64) with
     ``logcounts_scaled[i, j] = logcounts[i, j] * factor[obs.dataset[i], j]``.
+``logcounts_extra.mtx.gz`` / ``var_extra.csv.gz``
+    The same, for the 152 ToxoDB-65 genes the analysis object was subset away
+    from before it was saved -- all of them on unplaced ``KE*`` contigs, and
+    among them the apicoplast and mitochondrial transcripts the Supplementary 5
+    volcanoes plot.  Same cells in the same order, same normalisation, so the
+    two matrices side by side are the 8322-gene universe the published
+    differential expression ran on.
 ``obs.csv.gz`` / ``var.csv.gz``
     Cell / gene metadata; the first column is the index (``barcode`` /
     ``gene_id``).
@@ -164,8 +171,9 @@ OBS_EMBEDDING_DUPLICATES = {
 }
 
 #: var columns to export (on top of the index, the gene id).  ``seqid`` is kept
-#: because it documents which contigs are present (the mitochondrial contigs
-#: are absent, which matters for one non-reproducible DE panel).
+#: because it documents which contigs are present: the deposited object holds
+#: the 14 nuclear chromosomes only, and the 152 genes on the unplaced ``KE*``
+#: contigs are shipped beside it -- see ``build_extra_genes``.
 KEEP_VAR = ["seqid", "gene_name", "gene_description"]
 
 #: obsm keys to export.  ``3d_umap_harmony_integration`` is required for the
@@ -206,6 +214,16 @@ MANIFEST_NAME = "MANIFEST.json"
 FACTORS_NAME = "logcounts_scaled_factors.csv.gz"
 FACTORS_VARM_KEY = "logcounts_scaled_factors"
 
+#: The genes the analysis object was subset away from.  ToxoDB-65 has 8322
+#: protein-coding genes; the deposited object keeps the 8170 that sit on the 14
+#: nuclear chromosomes.  The other 152 are on unplaced ``KE*`` contigs and carry
+#: the apicoplast and mitochondrial transcripts that the Supplementary 5 volcano
+#: panels plot at the positive extreme, so they are shipped as a second, narrow
+#: matrix rather than folded into ``logcounts.mtx.gz``, which stays exactly the
+#: deposited layer.
+EXTRA_MATRIX_NAME = "logcounts_extra.mtx.gz"
+EXTRA_VAR_NAME = "var_extra.csv.gz"
+
 DEFAULT_METHODS_REPO = Path(
     "/home/agent/workspaces/BradyzoiteHeterogeneity-methods"
 )
@@ -215,6 +233,16 @@ DEFAULT_H5AD = (
     / "integrated_adata_me49_nr_subset_annotated_sparse.h5ad"
 )
 DEFAULT_PSEUDOTIME = DEFAULT_METHODS_REPO / "data" / "nr_pseudotime_BCC_UCC.csv"
+DEFAULT_NR_H5 = DEFAULT_METHODS_REPO / "data" / "non-reactivated_v65.h5"
+DEFAULT_ME49_H5AD = DEFAULT_METHODS_REPO / "data" / "011_me49_filtered.h5ad"
+DEFAULT_GFF = (
+    DEFAULT_METHODS_REPO
+    / "data"
+    / "input"
+    / "genome"
+    / "annotations"
+    / "ToxoDB-65_TgondiiME49.gff"
+)
 DEFAULT_OUTDIR = Path(__file__).resolve().parent.parent / "data"
 
 DESCRIPTIONS: dict[str, str] = {
@@ -233,6 +261,19 @@ DESCRIPTIONS: dict[str, str] = {
         "cells, columns = genes; float64 values written with shortest "
         "round-trip decimal representation. Exactly = logcounts * a per-"
         "(dataset, gene) constant -- see logcounts_scaled_factors.csv.gz"
+    ),
+    EXTRA_MATRIX_NAME: (
+        "MatrixMarket (real, coordinate) log-normalised expression of the 152 "
+        "ToxoDB-65 genes the deposited object does not carry, rows = cells, "
+        "columns = genes; row order matches obs.csv.gz, column order matches "
+        "var_extra.csv.gz. Same normalisation as logcounts.mtx.gz, so the two "
+        "side by side are the 8322-gene universe the published differential "
+        "expression ran on (bzfig.de)"
+    ),
+    EXTRA_VAR_NAME: (
+        "Per-gene metadata for logcounts_extra.mtx.gz, index column 'gene_id'; "
+        "same columns as var.csv.gz. Every one of these genes sits on an "
+        "unplaced KE* contig"
     ),
     "obs.csv.gz": (
         "Per-cell metadata, index column 'barcode'; includes cell_cycle_group "
@@ -478,6 +519,185 @@ def build_var(adata) -> pd.DataFrame:
     return legacy_strings(var[KEEP_VAR])
 
 
+def read_gff_genes(path: Path) -> pd.DataFrame:
+    """seqid / gene_name / gene_description per gene, from a ToxoDB GFF.
+
+    The deposited ``var`` table was built from this file; the export checks that
+    this parse reproduces it before trusting it for the 152 extra genes.
+    """
+    from urllib.parse import unquote
+
+    rows = {}
+    with open(path) as fh:
+        for line in fh:
+            if line.startswith("#"):
+                continue
+            fields = line.rstrip("\n").split("\t")
+            if len(fields) < 9 or fields[2] != "protein_coding_gene":
+                continue
+            attrs = dict(kv.split("=", 1) for kv in fields[8].split(";") if "=" in kv)
+            rows[attrs["ID"]] = (
+                fields[0],
+                unquote(attrs.get("Name", "")),
+                unquote(attrs.get("description", "")),
+            )
+    frame = pd.DataFrame.from_dict(
+        rows, orient="index", columns=["seqid", "gene_name", "gene_description"]
+    )
+    frame.index = pd.Index(np.asarray(frame.index, dtype=object), name="gene_id")
+    return frame
+
+
+def log_normalise(counts, totals: np.ndarray) -> sp.csr_matrix:
+    """``log1p(1e4 * counts / totals)`` in float32, one total per cell."""
+    out = to_csr(counts).astype(np.float32)
+    out = to_csr(sp.diags((np.float32(1e4) / totals).astype(np.float32)) @ out)
+    out.data = np.log1p(out.data).astype(np.float32)
+    return out
+
+
+def max_abs_diff(a, b) -> float:
+    """Largest absolute difference between two matrices of the same shape."""
+    diff = to_csr(a).astype(np.float64) - to_csr(b).astype(np.float64)
+    return float(np.abs(diff.data).max()) if diff.nnz else 0.0
+
+
+def build_extra_genes(adata, nr_h5: Path, me49_h5ad: Path, gff: Path):
+    """Normalised expression of the genes the deposited object does not carry.
+
+    The two objects the deposited one was integrated from still have them: the
+    non-reactivated 10x run (8322 genes) and the me49 object (8496).  Upstream
+    the normalisation ran per source object and *before* the gene subset -- each
+    cell divided by its own total over that object's full gene set, scaled to
+    1e4 and log1p'd.  Applied to the 8170 shipped genes that recipe reproduces
+    the deposited ``logcounts`` layer to one float32 ulp, which is what makes it
+    the right recipe for the 152 that are missing; the returned diagnostics
+    record the two denominators that do not work.
+
+    Returns the matrix (cells x 152, rows in ``obs`` order), the gene table and
+    the diagnostics.
+    """
+    import anndata as ad
+    import scanpy as sc
+
+    nr = sc.read_10x_h5(nr_h5)
+    nr.var_names_make_unique()
+    me49 = ad.read_h5ad(me49_h5ad)
+
+    universe = [str(gene) for gene in nr.var_names]
+    shipped = [str(gene) for gene in adata.var_names]
+    if not set(shipped) <= set(universe):
+        raise ValueError(f"{nr_h5.name} is missing genes the deposited object has")
+    if not set(universe) <= set(map(str, me49.var_names)):
+        raise ValueError(f"{me49_h5ad.name} is missing genes the 10x universe has")
+    extra = [gene for gene in universe if gene not in set(shipped)]
+
+    barcodes = np.asarray(list(map(str, adata.obs_names)), dtype=object)
+    is_nr = np.array([barcode.startswith(NR_PREFIX) for barcode in barcodes])
+    nr_cells = [barcode[len(NR_PREFIX) :] for barcode in barcodes[is_nr]]
+    me49_cells = list(barcodes[~is_nr])
+
+    # The two blocks stack nr-first; this puts them back in the deposited order.
+    order = np.empty(len(barcodes), dtype=np.int64)
+    order[np.flatnonzero(is_nr)] = np.arange(is_nr.sum())
+    order[np.flatnonzero(~is_nr)] = is_nr.sum() + np.arange((~is_nr).sum())
+    counts = to_csr(
+        sp.vstack([to_csr(nr[nr_cells, universe].X), to_csr(me49[me49_cells, universe].X)])
+    )[order]
+
+    totals = np.empty(len(barcodes), dtype=np.float32)
+    totals[is_nr] = np.asarray(to_csr(nr[nr_cells].X).sum(1)).ravel()
+    totals[~is_nr] = np.asarray(to_csr(me49[me49_cells].X).sum(1)).ravel()
+    if totals.min() <= 0:
+        raise ValueError("a cell has no counts at all; there is nothing to divide by")
+
+    position = {gene: i for i, gene in enumerate(universe)}
+    shared_columns = np.array([position[gene] for gene in shipped])
+    extra_columns = np.array([position[gene] for gene in extra])
+    shared_counts = counts[:, shared_columns]
+
+    # The counts pulled out of the source objects have to be the ones the
+    # deposited object kept, or the normalisation below is of something else.
+    counts_diff = max_abs_diff(shared_counts, adata.layers["raw_counts"])
+    if counts_diff != 0.0:
+        raise ValueError(
+            f"source counts differ from the deposited raw_counts layer by "
+            f"{counts_diff}; the cell or gene alignment is wrong"
+        )
+
+    deposited = to_csr(adata.layers["logcounts"])
+    denominators = {
+        "per source object": totals,
+        "all 8322 genes": np.asarray(counts.sum(1)).ravel().astype(np.float32),
+        "the 8170 deposited genes": np.asarray(shared_counts.sum(1))
+        .ravel()
+        .astype(np.float32),
+    }
+    logcounts_diff = {
+        name: max_abs_diff(log_normalise(shared_counts, denominator), deposited)
+        for name, denominator in denominators.items()
+    }
+    if logcounts_diff["per source object"] > 1e-6:
+        raise ValueError(
+            "the per-source-object normalisation no longer reproduces the "
+            f"deposited logcounts layer (max abs diff {logcounts_diff['per source object']})"
+        )
+
+    annotation = read_gff_genes(gff)
+    missing = [gene for gene in universe if gene not in annotation.index]
+    if missing:
+        raise ValueError(f"{gff.name} has no gene record for {missing[:3]} ({len(missing)} genes)")
+    for column in KEEP_VAR:
+        want = np.array(
+            [("" if pd.isna(v) else str(v)) for v in adata.var[column]], dtype=object
+        )
+        got = np.asarray(annotation.loc[shipped, column], dtype=object)
+        if not np.array_equal(want, got):
+            raise ValueError(f"{gff.name} does not reproduce the deposited var['{column}']")
+
+    matrix = log_normalise(counts[:, extra_columns], totals)
+    var = legacy_strings(annotation.loc[extra, KEEP_VAR])
+    diagnostics = {
+        "n_vars": len(extra),
+        "sources": {
+            "counts_10x_h5": str(nr_h5),
+            "counts_h5ad": str(me49_h5ad),
+            "annotation_gff": str(gff),
+        },
+        "universe": {
+            "toxodb_65_genes": len(universe),
+            "deposited_genes": len(shipped),
+            "extra_genes": len(extra),
+        },
+        "contigs": {
+            "n_contigs": int(var["seqid"].nunique()),
+            "genes_per_contig_where_more_than_one": {
+                str(seqid): int(n)
+                for seqid, n in var["seqid"].astype(str).value_counts().items()
+                if n > 1
+            },
+        },
+        "normalisation": (
+            "log1p(1e4 * counts / total counts of that cell in its source "
+            "object), float32; the same recipe and the same per-cell totals as "
+            "the deposited logcounts layer"
+        ),
+        "row_order": "same as obs.csv.gz",
+        "counts_match_deposited_raw_counts": True,
+        "deposited_logcounts_max_abs_diff": logcounts_diff,
+        "deposited_logcounts_diff_note": (
+            "how closely each denominator reproduces the deposited logcounts "
+            "layer on the 8170 genes it holds. The per-source-object totals are "
+            "within one float32 ulp; a single 8322-gene total is wrong for the "
+            "me49 cells, whose source object has 8496 genes; the 8170-gene "
+            "total -- all the deposited object can offer -- is wrong for every "
+            "cell, which is why the published DE could not be reproduced from it"
+        ),
+        "stored_entries": int(matrix.nnz),
+    }
+    return matrix, var, diagnostics
+
+
 def scaled_factor_table(
     logcounts, logcounts_scaled, dataset_codes: np.ndarray, dataset_names: list[str],
     var_names: np.ndarray,
@@ -623,9 +843,39 @@ def write_h5ad(path: Path, obs: pd.DataFrame, var: pd.DataFrame,
 # --------------------------------------------------------------------------
 
 
+def verify_supplementary_5(outdir: Path) -> dict:
+    """Re-run the Supplementary 5 volcano DE from the package just written.
+
+    The point is that the package is self-sufficient: this loads nothing but
+    the files in *outdir* and checks the counts against the ones recorded in
+    ``bzfig.constants``.
+    """
+    sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
+    from bzfig import constants, de
+    from bzfig.data import load_dataset
+
+    published = {"5C": constants.SUPP5C_DE_COUNTS, "5F": constants.SUPP5F_DE_COUNTS}
+    adata = load_dataset(outdir)
+    results = {}
+    for panel in de.COMPARISONS:
+        table = de.volcano_table(adata, panel, outdir)
+        counts = de.counts(table)
+        expected = constants.SUPP5_DE_COUNTS_REPRODUCED[panel]
+        assert counts == expected, f"Supplementary {panel}: {counts} != {expected}"
+        results[panel] = {
+            **counts,
+            "published": published.get(panel),
+            "genes_detected_in_both_groups": int(len(table)),
+            "log2fc_range": [float(table["log2fc"].min()), float(table["log2fc"].max())],
+        }
+        print(f"  Supplementary {panel}: up {counts['up']}, down {counts['down']}")
+    return results
+
+
 def verify(outdir: Path, adata, obs: pd.DataFrame, var: pd.DataFrame,
            obsm_keys: list[str], uns_colors: dict,
            export_layers: dict[str, str], extras_root: Path,
+           extra_matrix=None, extra_var: pd.DataFrame | None = None,
            check_h5ad: bool = True) -> dict:
     """Re-read every exported file and assert it matches the in-memory source.
 
@@ -858,6 +1108,33 @@ def verify(outdir: Path, adata, obs: pd.DataFrame, var: pd.DataFrame,
             assert np.array_equal(varm.T[m], wide[m]), "h5ad varm factors"
             results["logcounts_scaled_reconstruction"]["h5ad_varm"] = "identical"
 
+    # ---- the genes the deposited object dropped -------------------------
+    if extra_matrix is not None:
+        src = to_csr(extra_matrix)
+        with gzip.open(outdir / EXTRA_MATRIX_NAME, "rb") as fh:
+            back = to_csr(mmread(fh))
+        assert back.shape == src.shape, EXTRA_MATRIX_NAME
+        assert np.array_equal(back.indices, src.indices), f"{EXTRA_MATRIX_NAME} columns"
+        assert np.array_equal(back.indptr, src.indptr), f"{EXTRA_MATRIX_NAME} rows"
+        assert np.array_equal(back.data.astype(np.float32), src.data), EXTRA_MATRIX_NAME
+        back_var = pd.read_csv(
+            outdir / EXTRA_VAR_NAME, index_col=0, dtype=_string_column_dtypes(extra_var)
+        )
+        assert list(map(str, back_var.index)) == list(map(str, extra_var.index))
+        for col in extra_var.columns:
+            # A gene with no name is an empty field in the CSV and comes back as
+            # NaN, which is how var.csv.gz already carries it.
+            w = np.array(["" if pd.isna(v) else str(v) for v in extra_var[col]], dtype=object)
+            g = np.array(["" if pd.isna(v) else str(v) for v in back_var[col]], dtype=object)
+            assert np.array_equal(w, g), f"{EXTRA_VAR_NAME}: {col}"
+        results["extra_genes"] = {
+            "shape": list(src.shape),
+            "stored_entries": int(src.nnz),
+            "source_dtype": str(src.data.dtype),
+            "max_abs_diff": 0.0,
+            "bit_identical": True,
+        }
+
     # ---- verbatim extra files -------------------------------------------
     results["extra_files"] = {}
     for dest_name, (rel_src, _) in EXTRA_FILES.items():
@@ -886,6 +1163,19 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--pseudotime", type=Path, default=DEFAULT_PSEUDOTIME,
         help="nr_pseudotime_BCC_UCC.csv (default: %(default)s)",
+    )
+    parser.add_argument(
+        "--nr-h5", type=Path, default=DEFAULT_NR_H5,
+        help="10x .h5 of the non-reactivated run, which still has all 8322 "
+             "ToxoDB-65 genes (default: %(default)s)",
+    )
+    parser.add_argument(
+        "--me49-h5ad", type=Path, default=DEFAULT_ME49_H5AD,
+        help="me49 object the in vitro cells came from (default: %(default)s)",
+    )
+    parser.add_argument(
+        "--gff", type=Path, default=DEFAULT_GFF,
+        help="ToxoDB GFF the gene annotation comes from (default: %(default)s)",
     )
     parser.add_argument(
         "--outdir", type=Path, default=DEFAULT_OUTDIR,
@@ -1042,6 +1332,27 @@ def main(argv: list[str] | None = None) -> int:
             f"{factor_diag['reconstruction_bit_identical_float32']}"
         )
 
+    # ---- the genes the deposited object dropped -------------------------
+    print(f"writing {EXTRA_MATRIX_NAME} / {EXTRA_VAR_NAME}")
+    extra_matrix, extra_var, extra_diag = build_extra_genes(
+        adata, args.nr_h5, args.me49_h5ad, args.gff
+    )
+    extra_stats = write_layer_mtx(
+        outdir / EXTRA_MATRIX_NAME,
+        extra_matrix,
+        "float32",
+        "logcounts_extra",
+        args.gzip_level,
+    )
+    extra_var.to_csv(outdir / EXTRA_VAR_NAME, compression=gzip_csv_kwargs(args.gzip_level))
+    written += [outdir / EXTRA_MATRIX_NAME, outdir / EXTRA_VAR_NAME]
+    print(
+        f"  {extra_diag['n_vars']} genes on {len(extra_diag['contigs'])} unplaced "
+        f"contigs, {extra_stats['stored_entries']:,} stored entries, "
+        f"gz={extra_stats['mtx_gz_bytes'] / 1e6:.2f} MB; deposited logcounts "
+        f"reproduced to {extra_diag['deposited_logcounts_max_abs_diff']['per source object']:.3g}"
+    )
+
     # ---- extra verbatim files -------------------------------------------
     for dest_name, (rel_src, description) in EXTRA_FILES.items():
         src_path = args.extras_root / rel_src
@@ -1105,7 +1416,7 @@ def main(argv: list[str] | None = None) -> int:
         print("verifying round trip")
         verification = verify(
             outdir, adata, obs, var, obsm_keys, uns_colors, export_layers,
-            args.extras_root, check_h5ad=not args.no_h5ad,
+            args.extras_root, extra_matrix, extra_var, check_h5ad=not args.no_h5ad,
         )
         print("  all round-trip checks passed")
 
@@ -1141,6 +1452,7 @@ def main(argv: list[str] | None = None) -> int:
         "gzip_level": args.gzip_level,
         "matrix_orientation": "rows = cells (obs), columns = genes (var)",
         "layer_stats": layer_stats,
+        "extra_genes": {**extra_diag, **extra_stats},
         "optional_layers": optional_layers,
         "redundancy": {
             "logcounts_from_counts": {
@@ -1188,9 +1500,19 @@ def main(argv: list[str] | None = None) -> int:
         "total_bytes": sum(f["bytes"] for f in files),
     }
 
-    with open(outdir / MANIFEST_NAME, "w") as fh:
-        json.dump(manifest, fh, indent=2, sort_keys=False)
-        fh.write("\n")
+    def write_manifest() -> None:
+        with open(outdir / MANIFEST_NAME, "w") as fh:
+            json.dump(manifest, fh, indent=2, sort_keys=False)
+            fh.write("\n")
+
+    # The volcano check reads the package back through bzfig, which needs the
+    # manifest on disk, so the manifest is written before the check and again
+    # with its result.
+    write_manifest()
+    if verification is not None:
+        print("re-running the Supplementary 5 differential expression from the package")
+        verification["supplementary_5_de"] = verify_supplementary_5(outdir)
+        write_manifest()
 
     total = manifest["total_bytes"]
     print(f"\n{len(files)} files, {total:,} bytes ({total / 1e6:.1f} MB) "
