@@ -28,6 +28,8 @@ import scipy.io
 import scipy.sparse as sp
 from anndata import AnnData
 
+from .constants import CLUSTER_COLORS
+
 REPO = Path(__file__).resolve().parent.parent.parent
 DATA = REPO / "data"
 
@@ -152,14 +154,30 @@ def _load_h5ad(datadir: Path) -> AnnData:
     return adata
 
 
+def _apply_cluster_palette(adata: AnnData) -> AnnData:
+    """Put the published cluster palette where scanpy looks for it.
+
+    Neither the deposited object nor the standard files carry
+    ``*_cluster_colors``, so ``sc.pl.heatmap`` would colour its groupby bar from
+    scanpy's default palette while every other panel passes ``CLUSTER_COLORS``
+    explicitly. Setting it here keeps the two agreeing.
+    """
+    for column in ("nr_cluster", "cluster"):
+        values = adata.obs.get(column)
+        if values is None or not hasattr(values, "cat"):
+            continue
+        adata.uns[f"{column}_colors"] = list(CLUSTER_COLORS[: len(values.cat.categories)])
+    return adata
+
+
 def load_dataset(datadir: Path = DATA, source: str = "standard") -> AnnData:
     """Load the deposited dataset, with ``logcounts_scaled`` reconstructed."""
     datadir = Path(datadir)
     manifest = read_manifest(datadir)
     if source == "standard":
-        return _load_standard(datadir, manifest)
+        return _apply_cluster_palette(_load_standard(datadir, manifest))
     if source == "h5ad":
-        return _load_h5ad(datadir)
+        return _apply_cluster_palette(_load_h5ad(datadir))
     raise ValueError(f"source must be 'standard' or 'h5ad', not {source!r}")
 
 
