@@ -1,18 +1,32 @@
 # What I need from the authors
 
-Open items found while making the figure panels reproducible. Each says what is
-missing, why it matters, and what would close it.
+Items found while making the figure panels reproducible. Some are now closed;
+the ones that remain say what is missing, why it matters, and what would close
+it. Nothing here blocks the repository from building the figures.
 
-Ordered by how much it matters. The first three block a claim of full
-reproducibility; the rest are confirmations.
+## Status
+
+| | Item | State |
+| --- | --- | --- |
+| 1 | Supplementary 5C/5E/5F volcano plots | Accepted as external — see below |
+| 2 | Figure 1D unique-marker counts | Accepted as a recorded constant |
+| 3 | Enolase gene assignment | **Resolved — no error in the figure** |
+| 4 | Supplementary Figure 4 reconstruction | Needs a check |
+| 5 | Figure 1C row-group bands | Needs a check |
+| 6 | CCC/MCC vs UCC/BCC naming | Needs a consistency pass |
+| 7 | Public data URL | Waiting on you, nothing blocked |
 
 ---
 
 ## 1. The differential-expression table behind Supplementary Figure 5C, 5E, 5F
 
-**Status:** blocking. These three volcano plots cannot be regenerated.
+**Status:** accepted as external. You have said the genes at the extremes are not
+of particular significance and the panels are fine as they stand, so nothing here
+is blocking — this is a record of why they are not regenerated, and of the one
+thing that would change that.
 
-**Why.** Three independent problems, any one of which would be enough:
+**Why they cannot be regenerated.** Three independent problems, any one of which
+would be enough:
 
 - **The gene universe is gone.** Panels C and F label `ORF F`, `cytochrome b`
   and `cytochrome c` at the positive extreme of the fold-change axis. The
@@ -29,29 +43,30 @@ reproducibility; the rest are confirmations.
 Fitted threshold combinations can land near the stated counts (705/1460 against
 the published 664/1443), but that is curve-fitting, not reproduction.
 
-**What would close it, best first:**
+**How they are handled.** The three panels are documented as external in
+`docs/reproducibility.md`, with the published counts (664/1443 and 676/1146)
+recorded in `bzfig.constants.SUPP5C_DE_COUNTS` and `SUPP5F_DE_COUNTS`, and the
+cell subsets of each comparison described in prose so anyone can run their own
+test.
 
-1. **The exported DE table** that the volcanoes were plotted from — one row per
-   gene with gene ID, fold change, p-value and adjusted p-value, per comparison.
-   This is the real fix: with it the panels become exactly reproducible, and it
-   also becomes the source data the publisher wants for these panels.
-2. Failing that, **the AnnData object as it was before the
-   `seqid.str.startswith('TGME')` gene filter** — the one that still contains the
-   mitochondrial contigs — plus a note on which tool produced the fold changes
-   and what cutoffs were applied.
-3. Failing both, confirm you are content for these three panels to be documented
-   as external, with the published counts (664/1443 and 676/1146) recorded as
-   constants and the cell subsets described in prose.
+**The one thing that would change this:** the exported DE table the volcanoes
+were plotted from — one row per gene with gene ID, fold change, p-value and
+adjusted p-value, per comparison. With it the panels become exactly reproducible,
+and it also becomes the source data the publisher wants for them. If it is on a
+disk somewhere it is worth ten minutes of looking; if not, no matter.
 
-**Also needed either way:** for panels 5E and 5F, was "G1" taken from `cc_phase`
-or from `transferred_cc_phase`? The two give very different cell counts
-(280 vs 753 for the in vitro bradyzoites), and the caption does not say.
+**Small question, worth answering either way:** for panels 5E and 5F, was "G1"
+taken from `cc_phase` or from `transferred_cc_phase`? The two give very different
+cell counts (280 vs 753 for the in vitro bradyzoites), and the caption does not
+say. This affects how the subsets are described in the methods, independently of
+whether the panels are ever re-plotted.
 
 ---
 
 ## 2. Where the Figure 1D numbers came from
 
-**Status:** blocking a full reproduction of that panel.
+**Status:** accepted as a recorded constant. Recorded here for completeness — no
+action needed unless the provenance turns up.
 
 The "# Unique markers/Cluster" bars — **38 / 93 / 80 / 881 / 14 / 47** — are
 hard-coded in the analysis notebook with no accompanying computation.
@@ -62,41 +77,55 @@ exactly one cluster". Re-running that on the deposited object gives
 The gap is almost certainly the gene universe again: the working object had
 **8322** genes, the deposited one has **8170**.
 
-**What would close it:** the code or notebook cell that produced those six
-numbers, or a statement of the exact test (method, which layer, significance
-threshold, whether a fold-change cutoff applied, and which gene set). If it is
-not recoverable, say so and the panel stays as a recorded constant — it just
-cannot be called reproducible.
+**Decision:** the published values stay as a recorded constant in
+`bzfig.constants.UNIQUE_MARKERS_PER_CLUSTER`, and the panel is drawn from them.
+`docs/reproducibility.md` shows the re-derived numbers alongside so a reader can
+see how close they are. If the original cell ever turns up, drop it in and the
+panel becomes fully derived.
 
 ---
 
-## 3. Confirm the enolase gene assignment
+## 3. Enolase gene assignment — RESOLVED, no error in the figure
 
-**Status:** blocking, because it is a possible error in the published figure.
+This was raised as a possible error in the published figure. It is not: the
+figure is correct.
 
-An early cell of the analysis notebook maps the enolase labels one way and a
-later cell maps them the other way:
+An early cell of the analysis notebook (cell 142) maps the enolase labels the
+wrong way round. That cell was never used for the published panel — cell 145
+was, and it agrees with everything else:
 
 | | `TGME49_268850` | `TGME49_268860` |
 | --- | --- | --- |
-| Notebook cell 142 | eno-1 | eno-2 |
-| Notebook cell 145 | enolase 2 | enolase 1 |
-| Gene annotation (`gene_description`) | enolase 2 | enolase 1 |
-| Detected in (in vivo cells) | **0.6%** | **68.9%** |
+| Notebook cell 142 (unused) | eno-1 | eno-2 |
+| Notebook cell 145 (used for the figure) | enolase 2 | enolase 1 |
+| ToxoDB release 65, GFF and GTF | enolase 2 | enolase 1 |
+| ToxoDB release 68, GFF and GTF | enolase 2 | enolase 1 |
+| NCBI Gene | enolase 2 | enolase 1 |
+| Stage specificity in the literature | **tachyzoite** | **bradyzoite** |
+| Detected in in vivo bradyzoites | **0.6%** | **68.9%** |
+| Printed in the published panel under | Tachyzoite markers | Bradyzoite markers |
 
-The data side is unambiguous: `268850` is near-silent, matching the near-blank
-panel printed in the *tachyzoite* marker row under the label *enolase2*, and
-`268860` is broadly expressed, matching the panel in the *bradyzoite* row
-labelled *enolase1*. So cell 145 and the annotation agree with the published
-figure, and cell 142 is the wrong one.
+Every line agrees. The assignment is also confirmed independently of the
+annotation, in the primary literature:
 
-**What I need:** please confirm that reading. Two follow-ups if you do:
+- Dzierszinski et al. (1999) — the original characterisation: ENO2 is expressed
+  in tachyzoites, ENO1 solely in bradyzoites.
+- Ferguson et al. (2002), *Int J Parasitol* 32:1399–1410 — ENO1 in brain tissue
+  cyst bradyzoites, ENO2 in replicating stages, by immuno-EM in vivo.
+- Ngô et al. (2015), *Acta Cryst D* — the bradyzoite enolase structure paper,
+  which gives the gene IDs explicitly: **TgENO1 = TGME49_268860**,
+  **TgENO2 = TGME49_268850**.
 
-- Check that no text, legend or supplementary table anywhere in the manuscript
-  quotes the swapped IDs.
+No action needed on the manuscript. Two small tidy-ups if you want them:
+
 - Some PNGs in the analysis repository are named from the swapped run
-  (`expression_eno-1_TGME49_268850.png` and similar). They should not be used as
-  a naming authority; worth deleting or renaming so nobody is misled later.
+  (`expression_eno-1_TGME49_268850.png` and similar). They are the only
+  artefacts carrying the wrong names; worth deleting so nobody is misled later.
+- If the readership includes non-parasitologists, a footnote may help: in humans
+  the ENO1/ENO2 numbering means something entirely different (ENO1 is the
+  ubiquitous isoform there), which is a known trap for readers crossing over
+  from mammalian work. It is not an inconsistency within the *Toxoplasma*
+  literature, which uses one convention throughout.
 
 ---
 

@@ -52,10 +52,18 @@ phase only and their rows sit at the one-hot extremes of ±1.789 / −0.447.
 Hard-coded in the analysis notebook. The underlying quantity is evidently "genes
 that are a significant Wilcoxon marker of exactly one cluster", but the original
 run used a larger gene universe (8322 genes) than the deposited object (8170).
-Re-running the obvious test on the deposited object gives `[37, 94, 84, 861, 18,
-52]` — close for clusters 0 and 3, not for the others. The published values are
-kept in `bzfig.constants.UNIQUE_MARKERS_PER_CLUSTER` and the panel is drawn from
-them.
+Re-running that test on the deposited object gives `[37, 94, 84, 861, 18, 52]`:
+
+| Cluster | 0 | 1 | 2 | 3 | 4 | 5 |
+| --- | --- | --- | --- | --- | --- | --- |
+| Published | 38 | 93 | 80 | 881 | 14 | 47 |
+| Re-derived here | 37 | 94 | 84 | 861 | 18 | 52 |
+
+The differences are small and go in both directions, which is what a 152-gene
+difference in the universe would do; nothing suggests a different test. The
+published values are kept in `bzfig.constants.UNIQUE_MARKERS_PER_CLUSTER` and the
+panel is drawn from them, so the rendered panel matches the paper exactly. If the
+original cell turns up, the constant can be replaced by the computation.
 
 **Supplementary Figure 5C, 5E and 5F** — the three volcano plots.
 
@@ -99,20 +107,36 @@ For 5E and 5F it is undetermined whether G1 was taken from `cc_phase` or
 is not derived from this dataset at all — the caption attributes it to Benke et
 al., mined from ToxoDB.
 
-## A label correction worth knowing
+## The enolase labels — the figure is right
 
-An early cell of the analysis notebook maps the two enolase labels the wrong way
-round (`eno-1 → TGME49_268850`, `eno-2 → TGME49_268860`). The gene annotation and
-the published panels both use the opposite mapping, which is what this repository
-follows:
+An early cell of the analysis notebook (cell 142) maps the two enolase labels the
+wrong way round (`eno-1 → TGME49_268850`, `eno-2 → TGME49_268860`). That cell was
+never used: the published panel came from cell 145, which uses the mapping this
+repository follows:
 
-* `TGME49_268850` = **enolase 2**, detected in 0.6% of in vivo cells — the
-  near-blank panel in the tachyzoite-marker row
-* `TGME49_268860` = **enolase 1**, detected in 68.9% — the broadly stained panel
-  in the bradyzoite-marker row
+* `TGME49_268850` = **enolase 2**, the tachyzoite isoform — detected in 0.6% of
+  in vivo cells, the near-blank panel in the tachyzoite-marker row
+* `TGME49_268860` = **enolase 1**, the bradyzoite isoform — detected in 68.9%,
+  the broadly stained panel in the bradyzoite-marker row
 
-Some stale PNGs in the analysis repository carry the swapped names. They are not
-the naming authority.
+This is confirmed from two independent directions. The ToxoDB annotations used in
+this study, releases 65 and 68, in both GFF and GTF, all carry
+`TGME49_268850 = enolase 2` and `TGME49_268860 = enolase 1`, as do the `var`
+table of the deposited object and NCBI Gene. And the primary literature gives the
+same assignment: Dzierszinski et al. (1999) originally characterised ENO2 as the
+tachyzoite isoform and ENO1 as bradyzoite-specific; Ferguson et al. (2002),
+*Int J Parasitol* 32:1399–1410, localised ENO1 to brain tissue cyst bradyzoites
+and ENO2 to replicating stages by immuno-EM in vivo; and Ngô et al. (2015),
+*Acta Cryst D*, state the gene IDs explicitly — TgENO1 = TGME49_268860,
+TgENO2 = TGME49_268850.
+
+One point for readers coming from mammalian work: the human ENO1/ENO2 numbering
+means something entirely different (ENO1 is the ubiquitous isoform there). The
+*Toxoplasma* literature uses one convention throughout; the apparent conflict is
+only with the human gene names.
+
+Some stale PNGs in the analysis repository carry the swapped names from the
+unused cell. They are not the naming authority.
 
 ## Panel assembly
 
