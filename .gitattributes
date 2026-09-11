@@ -6,3 +6,6 @@ data/** filter=lfs diff=lfs merge=lfs -text
 data/MANIFEST.json !filter !diff !merge -text
 data/uns_colors.json !filter !diff !merge -text
 data/supp1a_marker_genes.csv !filter !diff !merge -text
+
+# The preview page is a single self-contained file with the figures inlined.
+preview/*.html filter=lfs diff=lfs merge=lfs -text

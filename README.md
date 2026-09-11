@@ -8,10 +8,17 @@ of what reproduces exactly and what does not.
 uv sync                              # or: pip install -e .
 python scripts/fetch_data.py         # download + verify the input data
 python scripts/make_figures.py       # render every panel to PNG, SVG and PDF
+python scripts/make_preview.py       # build preview/index.html from what was rendered
 ```
 
 Rendered panels land in `figures/`. `python scripts/make_figures.py --list` shows
 the panel names; `--panel 1C 1G` renders a subset.
+
+`preview/index.html` is a single self-contained page showing every rendered panel
+with its metadata and its reproducibility status — no network access, so it can be
+opened from disk or served as a static file. It needs the `preview` extra
+(`pip install -e '.[preview]'`); `--max-edge` controls the size of the embedded
+images.
 
 ## Start here
 
