@@ -51,7 +51,7 @@ def base_urls(extra: list[str]) -> list[str]:
 
 def candidates(entry: dict, bases: list[str]) -> list[str]:
     """Every URL worth trying for one manifest entry, in priority order."""
-    urls = [base + entry["name"] for base in bases]
+    urls = [base + entry["filename"] for base in bases]
     urls += [u for u in entry.get("urls", []) if u]
     seen, ordered = set(), []
     for url in urls:
@@ -78,30 +78,30 @@ def download(url: str, dest: Path) -> None:
 def verify(path: Path, entry: dict) -> tuple[bool, str]:
     if not path.exists():
         return False, "missing"
-    if path.stat().st_size != entry["size"]:
-        return False, f"wrong size ({path.stat().st_size} != {entry['size']})"
+    if path.stat().st_size != entry["bytes"]:
+        return False, f"wrong size ({path.stat().st_size} != {entry['bytes']})"
     if sha256(path) != entry["sha256"]:
         return False, "sha256 mismatch"
     return True, "ok"
 
 
 def fetch(entry: dict, outdir: Path, bases: list[str], force: bool) -> bool:
-    path = outdir / entry["name"]
+    path = outdir / entry["filename"]
     if not force:
         ok, why = verify(path, entry)
         if ok:
-            print(f"  {entry['name']}: already present, {why}")
+            print(f"  {entry['filename']}: already present, {why}")
             return True
         if why != "missing":
-            print(f"  {entry['name']}: {why}, re-downloading")
+            print(f"  {entry['filename']}: {why}, re-downloading")
 
     urls = candidates(entry, bases)
     if not urls:
-        print(f"  {entry['name']}: MISSING and no URL known — see data/README.md")
+        print(f"  {entry['filename']}: MISSING and no URL known — see data/README.md")
         return False
 
     for url in urls:
-        print(f"  {entry['name']}: trying {url}")
+        print(f"  {entry['filename']}: trying {url}")
         try:
             download(url, path)
         except (urllib.error.URLError, urllib.error.HTTPError, OSError) as exc:
@@ -109,12 +109,12 @@ def fetch(entry: dict, outdir: Path, bases: list[str], force: bool) -> bool:
             continue
         ok, why = verify(path, entry)
         if ok:
-            print(f"    ok ({entry['size']:,} bytes)")
+            print(f"    ok ({entry['bytes']:,} bytes)")
             return True
         print(f"    downloaded but {why}; trying next mirror")
         path.unlink(missing_ok=True)
 
-    print(f"  {entry['name']}: could not be retrieved from any mirror")
+    print(f"  {entry['filename']}: could not be retrieved from any mirror")
     return False
 
 
@@ -141,10 +141,10 @@ def main() -> int:
         print(f"Verifying {len(files)} file(s) in {outdir}")
         failures = []
         for entry in files:
-            ok, why = verify(outdir / entry["name"], entry)
-            print(f"  {entry['name']}: {why}")
+            ok, why = verify(outdir / entry["filename"], entry)
+            print(f"  {entry['filename']}: {why}")
             if not ok:
-                failures.append(entry["name"])
+                failures.append(entry["filename"])
         if failures:
             print(f"\n{len(failures)} file(s) failed verification: {', '.join(failures)}")
             return 1
@@ -155,7 +155,7 @@ def main() -> int:
     print(f"Fetching {len(files)} file(s) into {outdir}")
     if bases:
         print(f"Mirror bases: {', '.join(bases)}")
-    missing = [entry["name"] for entry in files if not fetch(entry, outdir, bases, args.force)]
+    missing = [entry["filename"] for entry in files if not fetch(entry, outdir, bases, args.force)]
     if missing:
         print(f"\n{len(missing)} file(s) unavailable: {', '.join(missing)}")
         print("Supply a mirror with --base-url or BZFIG_DATA_URLS, or see data/README.md")
