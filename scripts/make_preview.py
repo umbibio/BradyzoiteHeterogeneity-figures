@@ -42,7 +42,7 @@ sys.path.insert(0, str(REPO / "src"))
 from bzfig import constants as K  # noqa: E402
 from bzfig import de  # noqa: E402  (for the published volcano comparisons)
 
-PAGE_TITLE = "Bradyzoite heterogeneity — reproduced figure panels"
+PAGE_TITLE = "Bradyzoite Heterogeneity Figures"
 
 # Image embedding. The renders are 300 dpi; a long edge of 2000 px is more than
 # a screen can show and keeps the whole page around 4 MB.
@@ -712,9 +712,10 @@ def build_panels(facts: dict, verdicts: dict[str, str]) -> list[dict]:
                 ),
                 ("Drawn by", "<code>bzfig.panels.supplementary_1a</code>"),
                 (
-                    "Not included",
-                    "The external Benke/ToxoDB time courses are Supplementary 2A–F. "
-                    "Supplementary 1B/C are single-cell expression maps not yet included here.",
+                    "Rest of the figure",
+                    "Supplementary 1B and 1C are eleven per-gene expression UMAPs from this same "
+                    "dataset — a gap in this repository, not out of scope. (The Benke et al. "
+                    "caption belongs to Supplementary Figure 2.)",
                 ),
             ],
         }
@@ -912,9 +913,9 @@ VOLCANO_IDS = {"5C": "supp-5c", "5E": "supp-5e", "5F": "supp-5f"}
 VOLCANO_NOTES = {
     "5C": (
         "Points off the top of the axis",
-        "100 of the plotted points have an adjusted p-value below the published 1e-100 axis top "
-        "— 20 of them underflow float64 to zero — and are drawn as triangles on the axis rather "
-        "than dropped. 5E and 5F have none.",
+        "100 genes have an adjusted p-value below the published 1e-100 axis top — 20 of them "
+        "underflow float64 to zero — and are not plotted, which is what the published panel "
+        "does. They stay in the DE table, so the counts are unaffected. 5E and 5F have none.",
     ),
     "5E": (
         "Blue set read off the figure",
@@ -1398,14 +1399,22 @@ JS = """
   var themeButton = document.getElementById("theme-toggle");
   var modes = ["auto", "light", "dark"];
   function readTheme() {
-    try { return localStorage.getItem("bzfig-theme") || "auto"; } catch (e) { return "auto"; }
+    try { return localStorage.getItem("bzfig-theme"); } catch (e) { return null; }
   }
   function applyTheme(mode) {
     root.setAttribute("data-theme", mode);
     if (themeButton) themeButton.textContent = "Theme: " + mode;
     try { localStorage.setItem("bzfig-theme", mode); } catch (e) { /* private mode */ }
   }
-  applyTheme(readTheme());
+  // Only stamp the root when the reader has actually chosen a theme here. Left
+  // alone, whatever stamped it stays -- the host's setting when this page is
+  // embedded, and the file's own data-theme="auto" when it is opened directly.
+  var stored = readTheme();
+  if (stored) {
+    applyTheme(stored);
+  } else if (themeButton) {
+    themeButton.textContent = "Theme: " + (root.getAttribute("data-theme") || "auto");
+  }
   if (themeButton) {
     themeButton.addEventListener("click", function () {
       applyTheme(modes[(modes.indexOf(root.getAttribute("data-theme")) + 1) % modes.length]);
