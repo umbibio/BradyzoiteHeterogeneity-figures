@@ -167,7 +167,7 @@ nothing left to choose.
   caption's annotation thresholds — pink, except ribosomal proteins, which are
   grey; that rule puts grey on exactly the five points the published 5F has grey.
   5E's blue set is not derivable at all (two of its genes are a dense granule and
-  a rhoptry protein), so the eight genes were read back off the published panel
+  a rhoptry protein), so the seven genes were read back off the published panel
   by matching points to fold changes, and are recorded in
   `bzfig.constants.SUPP5E_CYST_WALL_GENES`.
 * **The labels.** The caption's rule — annotate above log2FC 8 or below −7 for

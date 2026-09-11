@@ -40,6 +40,7 @@ REPO = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO / "src"))
 
 from bzfig import constants as K  # noqa: E402
+from bzfig import de  # noqa: E402  (for the published volcano comparisons)
 
 PAGE_TITLE = "Bradyzoite heterogeneity — reproduced figure panels"
 
@@ -135,7 +136,15 @@ def md_to_html(markdown: str) -> str:
         if not line.strip():
             index += 1
             continue
-        if line.startswith("#"):
+        if line.lstrip().startswith("```"):
+            index += 1
+            fenced: list[str] = []
+            while index < len(lines) and not lines[index].lstrip().startswith("```"):
+                fenced.append(lines[index])
+                index += 1
+            index += 1
+            out.append("<pre><code>" + esc("\n".join(fenced)) + "</code></pre>")
+        elif line.startswith("#"):
             depth = len(line) - len(line.lstrip("#"))
             level = min(depth + 1, 5)
             out.append(f"<h{level}>{_inline(line.lstrip('#').strip())}</h{level}>")
@@ -295,6 +304,26 @@ def dataset_facts(datadir: Path) -> dict:
         markers = [row[0] for row in csv.reader(handle) if row]
     facts["supp1a_listed"] = len(markers)
     facts["supp1a_plotted"] = len(set(markers) & genes)
+
+    # The volcano panels: the two groups of each published comparison, counted
+    # the way bzfig.de._groups selects them, and what the test produced.
+    facts["universe"] = manifest["extra_genes"]["universe"]
+    facts["de"] = manifest["verification"]["supplementary_5_de"]
+    facts["volcano_cells"] = {}
+    for panel, comparison in de.COMPARISONS.items():
+
+        def size(sample: str, g1_only: bool = comparison.g1_only) -> int:
+            return sum(
+                1
+                for row in obs
+                if row["orig_ident"] == sample
+                and (not g1_only or row["cc_phase"] in K.G1_PHASES)
+            )
+
+        facts["volcano_cells"][panel] = {
+            "a": size(comparison.sample_a),
+            "b": size(comparison.sample_b),
+        }
     return facts
 
 
@@ -318,16 +347,15 @@ STATUS = {
         "Reconstruction",
         "the drawing code does not exist; the recipe was derived by matching the published panel",
     ),
+    "wider": (
+        "Reproduced, wider gene set",
+        "the published test ran on the full ToxoDB-65 gene universe, not on the genes the "
+        "deposited object kept; see “The volcano panels”",
+    ),
     "constant": (
         "Recorded constant",
         "not derivable from the deposited object; the published values are drawn from constants.py",
     ),
-}
-
-# Published panels with no render of their own, listed after the panel they follow.
-NOT_REGENERATED = {
-    "supp-5b": ("Supplementary 5C",),
-    "supp-5d": ("Supplementary 5E", "Supplementary 5F"),
 }
 
 IN_VIVO_SUBSET = "obs.orig_ident == 'Nonreactivated'"
@@ -344,6 +372,24 @@ def swatches(colors: list[str]) -> str:
         f'<span class="swatch" style="background:{esc(c)}" title="{esc(c)}"></span>' for c in colors
     )
     return f'<span class="swatches">{dots}</span>'
+
+
+def colour_key(names: list[str]) -> str:
+    """The volcano point colours, as a small swatch-and-label key."""
+    items = "".join(
+        f'<span class="key"><span class="swatch" style="background:{esc(K.VOLCANO_COLORS[n])}"'
+        f' title="{esc(K.VOLCANO_COLORS[n])}"></span>{esc(n)}</span>'
+        for n in names
+    )
+    return f'<span class="keys">{items}</span>'
+
+
+def signed(value: float, places: int = 2, trim: bool = False) -> str:
+    """A number for prose, with a typographic minus."""
+    text = f"{value:.{places}f}"
+    if trim and "." in text:
+        text = text.rstrip("0").rstrip(".")
+    return text.replace("-", MINUS)
 
 
 def scale_bar(uri: str, low: str, high: str, label: str) -> str:
@@ -509,10 +555,13 @@ def build_panels(facts: dict, verdicts: dict[str, str]) -> list[dict]:
                     ),
                 ),
                 (
-                    "Re-run on the deposited object",
-                    "gives <code>[37, 94, 84, 861, 18, 52]</code> — the original run used a "
-                    f"larger gene universe (8322 genes) than the deposited object "
-                    f"({number(facts['n_vars'])})",
+                    "Re-running the obvious test",
+                    f"gives <code>[37, 94, 84, 861, 18, 52]</code> on the deposited "
+                    f"{number(facts['n_vars'])} genes and "
+                    "<code>[45, 93, 84, 863, 18, 53]</code> on the full "
+                    f"{number(facts['universe']['toxodb_65_genes'])}-gene universe now that it is "
+                    "shipped — neither is the published set, so the gene universe is not the "
+                    "explanation and whatever fixed these six numbers is still missing",
                 ),
                 ("Colour", f"{palette} cluster palette, <code>constants.CLUSTER_COLORS</code>"),
                 ("Drawn by", "<code>bzfig.panels.figure_1d</code>"),
@@ -804,6 +853,8 @@ def build_panels(facts: dict, verdicts: dict[str, str]) -> list[dict]:
         }
     )
 
+    panels.append(volcano_panel("5C", facts))
+
     label_5d, gene_5d = K.SUPP5D_GENE
     panels.append(
         {
@@ -830,62 +881,174 @@ def build_panels(facts: dict, verdicts: dict[str, str]) -> list[dict]:
         }
     )
 
+    panels.append(volcano_panel("5E", facts))
+    panels.append(volcano_panel("5F", facts))
+
     return panels
 
 
-def missing_panels(subsets: list[dict[str, str]]) -> list[dict]:
+VOLCANO_IDS = {"5C": "supp-5c", "5E": "supp-5e", "5F": "supp-5f"}
+
+# Caveats that belong to one panel only. Both are written up in
+# docs/reproducibility.md, under "Reproduced from a wider gene set".
+VOLCANO_NOTES = {
+    "5C": (
+        "Points off the top of the axis",
+        "100 of the plotted points have an adjusted p-value below the published 1e-100 axis top "
+        "— 20 of them underflow float64 to zero — and are drawn as triangles on the axis rather "
+        "than dropped. 5E and 5F have none.",
+    ),
+    "5E": (
+        "Blue set read off the figure",
+        "there is no cyst wall protein list in the data or the paper (two of the blue genes are "
+        "a dense granule and a rhoptry protein), so the set was recovered by matching the "
+        "published blue points to their fold changes; it is recorded in "
+        f"<code>constants.SUPP5E_CYST_WALL_GENES</code>, which holds "
+        f"{len(K.SUPP5E_CYST_WALL_GENES)} genes.",
+    ),
+}
+
+
+def volcano_panel(panel: str, facts: dict) -> dict:
+    """One of the three Supplementary 5 volcano panels."""
+    comparison = de.COMPARISONS[panel]
+    stats = facts["de"][panel]
+    cells = facts["volcano_cells"][panel]
+    universe = facts["universe"]
+    axes = K.VOLCANO_AXES[panel]
+    low, high = K.VOLCANO_LABEL_RANGE[panel]
+    plotted = stats["up"] + stats["down"]
+    published = stats["published"]
+    title = f"{comparison.label_a} vs {comparison.label_b}"
+
+    if published:
+        lede = (
+            f"Reproduces the published {number(published['up_in_vivo'])} up / "
+            f"{number(published['down_in_vivo'])} down as {number(stats['up'])} / "
+            f"{number(stats['down'])}, from the full "
+            f"{number(universe['toxodb_65_genes'])}-gene universe."
+        )
+        counts = (
+            f"{number(stats['up'])} up / {number(stats['down'])} down in group A "
+            "(<code>constants.SUPP5_DE_COUNTS_REPRODUCED</code>), against a published "
+            f"{number(published['up_in_vivo'])} / {number(published['down_in_vivo'])} "
+            f"(<code>constants.SUPP5{panel[-1]}_DE_COUNTS</code>)"
+        )
+    else:
+        lede = (
+            f"Reproduces {number(stats['up'])} up / {number(stats['down'])} down. The paper "
+            "quotes no counts for this panel; it is validated by its called-out genes instead."
+        )
+        counts = (
+            f"{number(stats['up'])} up / {number(stats['down'])} down in group A "
+            "(<code>constants.SUPP5_DE_COUNTS_REPRODUCED</code>); the caption quotes none"
+        )
+
+    g1 = (
+        "<br>G1 only — <code>obs.cc_phase</code> in "
+        + ", ".join(f"<code>{phase}</code>" for phase in K.G1_PHASES)
+        + " (not <code>transferred_cc_phase</code>, which does not reproduce the counts)"
+        if comparison.g1_only
+        else ""
+    )
+    keys = ["other", "called out", "ribosomal protein"]
+    if panel == "5E":
+        keys.append("cyst wall protein")
+
+    meta = [
+        (
+            "Cells",
+            f"group A — {esc(comparison.label_a)}, <code>obs.orig_ident == "
+            f"'{esc(comparison.sample_a)}'</code> ({number(cells['a'])} cells)<br>"
+            f"group B (reference) — {esc(comparison.label_b)}, <code>obs.orig_ident == "
+            f"'{esc(comparison.sample_b)}'</code> ({number(cells['b'])} cells)" + g1,
+        ),
+        (
+            "Gene universe",
+            f"{number(universe['toxodb_65_genes'])} ToxoDB-65 genes — the "
+            f"{number(universe['deposited_genes'])} of <code>logcounts.mtx.gz</code> widened with "
+            f"the {number(universe['extra_genes'])} of <code>logcounts_extra.mtx.gz</code> "
+            "(<code>bzfig.de.expanded</code>); "
+            f"{number(stats['genes_detected_in_both_groups'])} of them are detected in both "
+            "groups and tested",
+        ),
+        (
+            "Test",
+            "<code>sc.tl.rank_genes_groups(method='wilcoxon', tie_correct=False)</code> against "
+            "group B, Benjamini-Hochberg; significant at <code>pvals_adj</code> &lt; "
+            f"{K.DE_ALPHA:g} (<code>constants.DE_ALPHA</code>) and |log2FC| &gt; "
+            f"{K.DE_LOG2FC_CUTOFF:g} (<code>constants.DE_LOG2FC_CUTOFF</code>)",
+        ),
+        ("Counts", counts),
+        (
+            "Plotted",
+            f"{number(plotted)} significant genes; log2FC {signed(stats['log2fc_range'][0])} … "
+            f"{signed(stats['log2fc_range'][1])}",
+        ),
+        (
+            "Axes",
+            f"x {signed(axes['xlim'][0], 1, trim=True)} … "
+            f"{signed(axes['xlim'][1], 1, trim=True)}; y adjusted p on a "
+            f"reversed log scale to 1e{MINUS}{axes['ymax']} "
+            "(<code>constants.VOLCANO_AXES</code>, measured off the published figure)",
+        ),
+        (
+            "Colour",
+            f"{colour_key(keys)}pink marks the genes the panel calls out — |log2FC| beyond "
+            f"{signed(low, 0)} / {signed(high, 0)} "
+            "(<code>constants.VOLCANO_LABEL_RANGE</code>) — not every hypothetical protein, "
+            "which is what the published legend says; colouring those would turn half the panel "
+            "pink. Ribosomal proteins among them are grey.",
+        ),
+        VOLCANO_NOTES.get(panel, ("", "")),
+        (
+            "Drawn by",
+            f"<code>bzfig.panels.supplementary_5{panel[-1].lower()}</code> over "
+            "<code>bzfig.de.volcano_table</code>",
+        ),
+        (
+            "Method",
+            'the recipe, the evidence for the cutoff and what is not reproduced are in '
+            '<a href="#volcanoes">The volcano panels</a>',
+        ),
+    ]
+
+    return {
+        "id": VOLCANO_IDS[panel],
+        "overlay": " · ".join(
+            (
+                f"{number(cells['a'])} vs {number(cells['b'])} cells",
+                f"{number(universe['toxodb_65_genes'])}-gene universe",
+                f"Wilcoxon, padj < {K.DE_ALPHA:g}, |log2FC| > {K.DE_LOG2FC_CUTOFF:g}",
+                f"{number(plotted)} genes plotted",
+            )
+        ),
+        "group": "Supplementary 5",
+        "label": f"Supplementary {panel}",
+        "title": title[0].upper() + title[1:],
+        "lede": lede,
+        "status": "wider",
+        "plates": [{"file": f"Supplementary_{panel}_volcano", "caption": title}],
+        "meta": [row for row in meta if row[0]],
+    }
+
+
+def missing_panels(facts: dict) -> list[dict]:
     """The panels that are not regenerated, with their recorded values."""
-    by_panel = {row["Panel"]: row for row in subsets}
-
-    def comparison(key: str) -> str:
-        """“Volcano plot — A vs B”, with the subsets as the docs describe them."""
-        row = by_panel.get(key)
-        if not row:
-            return "Volcano plot"
-        return f"Volcano plot — {row['Group A']} vs {row['Group B']}"
-
-    counts_5c = ", ".join(f"{k.replace('_', ' ')} {v}" for k, v in K.SUPP5C_DE_COUNTS.items())
-    counts_5f = ", ".join(f"{k.replace('_', ' ')} {v}" for k, v in K.SUPP5F_DE_COUNTS.items())
     return [
         {
             "label": "Figure 1D",
             "status": "Recorded constant",
             "what": "# Unique markers/Cluster",
             "why": (
-                "Hard-coded in the analysis notebook with no accompanying computation. The "
-                "original run used a larger gene universe (8322 genes) than the deposited object "
-                "(8170), so the six numbers cannot be regenerated. The panel above is drawn from "
-                "the recorded values, "
+                "Hard-coded in the analysis notebook with no accompanying computation. Re-running "
+                "the obvious test on the deposited object gives 37, 94, 84, 861, 18, 52, and on "
+                f"the full {number(facts['universe']['toxodb_65_genes'])}-gene universe "
+                "45, 93, 84, 863, 18, 53 — neither is the published set, so the gene universe is "
+                "not the explanation here. The panel above is drawn from the recorded values, "
                 + ", ".join(str(v) for _, v in sorted(K.UNIQUE_MARKERS_PER_CLUSTER.items()))
-                + " (<code>constants.UNIQUE_MARKERS_PER_CLUSTER</code>)."
-            ),
-        },
-        {
-            "label": "Supplementary 5C",
-            "status": "Not regenerated",
-            "what": comparison("5C"),
-            "why": (
-                "The gene universe, the fold-change metric and an undocumented fold-change filter "
-                "are all unrecoverable; see the note below. The published counts are recorded as "
-                f"<code>constants.SUPP5C_DE_COUNTS</code> ({esc(counts_5c)})."
-            ),
-        },
-        {
-            "label": "Supplementary 5E",
-            "status": "Not regenerated",
-            "what": comparison("5E"),
-            "why": (
-                "Same reasons as 5C. It is also undetermined whether “G1” was taken from "
-                "<code>cc_phase</code> or <code>transferred_cc_phase</code>."
-            ),
-        },
-        {
-            "label": "Supplementary 5F",
-            "status": "Not regenerated",
-            "what": comparison("5F"),
-            "why": (
-                "Same reasons as 5C. The published counts are recorded as "
-                f"<code>constants.SUPP5F_DE_COUNTS</code> ({esc(counts_5f)})."
+                + " (<code>constants.UNIQUE_MARKERS_PER_CLUSTER</code>), so it matches the paper "
+                "exactly; it is simply not a reproduction."
             ),
         },
     ]
@@ -929,6 +1092,7 @@ CSS = """
   --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
   --ok: #3f7d5f;
   --warn: #9a7430;
+  --info: #3f6d96;
   --neutral: #7c828b;
 }
 @media (prefers-color-scheme: dark) {
@@ -1023,6 +1187,7 @@ main { min-width: 0; padding: 48px 40px 120px; }
 .badge::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--neutral); }
 .badge[data-status="exact"]::before { background: var(--ok); }
 .badge[data-status="reconstruction"]::before { background: var(--warn); }
+.badge[data-status="wider"]::before { background: var(--info); }
 
 /* --------------------------------------------------------------- plates */
 .plates { margin: 22px 0 0; display: grid; gap: 22px; }
@@ -1094,7 +1259,12 @@ dl.meta-list dt { color: var(--faint); font-weight: 600; }
 dl.meta-list dd { margin: 0; color: var(--muted); min-width: 0; overflow-wrap: anywhere; }
 dl.meta-list dd code { background: none; padding: 0; color: var(--fg); }
 .swatches { display: inline-flex; gap: 3px; vertical-align: -2px; margin-right: 6px; }
-.swatch { width: 11px; height: 11px; border-radius: 2px; display: inline-block; }
+.swatch {
+  width: 11px; height: 11px; border-radius: 2px; display: inline-block; flex: none;
+  box-shadow: inset 0 0 0 1px rgba(128,128,128,.4);
+}
+.keys { display: flex; flex-wrap: wrap; gap: 3px 14px; margin-bottom: 5px; }
+.key { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; }
 .scale { display: inline-flex; align-items: center; gap: 6px; margin-right: 8px; }
 .scale-bar { width: 96px; height: 9px; border-radius: 2px; display: block; }
 .scale-end { font-size: 11px; color: var(--faint); font-variant-numeric: tabular-nums; }
@@ -1109,6 +1279,12 @@ dl.meta-list dd code { background: none; padding: 0; color: var(--fg); }
 .doc li { margin-bottom: 6px; }
 .doc .quoted { color: var(--muted); }
 .scroll-x { overflow-x: auto; margin: 0 0 16px; }
+pre {
+  margin: 0 0 16px; padding: 12px 14px; overflow-x: auto;
+  background: var(--card); border: 1px solid var(--line-soft); border-radius: 3px;
+  font: 12px/1.6 var(--mono); color: var(--muted);
+}
+pre code { background: none; padding: 0; font-size: inherit; white-space: pre; }
 table { border-collapse: collapse; font: 13px/1.5 var(--sans); width: 100%; }
 th, td { text-align: left; vertical-align: top; padding: 7px 14px 7px 0; border-bottom: 1px solid var(--line-soft); }
 th { color: var(--faint); font-weight: 600; white-space: nowrap; }
@@ -1456,9 +1632,13 @@ TEMPLATE = """<!DOCTYPE html>
   {%- endfor %}
   <div class="nav-group">
     <h3>Reference</h3>
+    <a href="#volcanoes" data-target="volcanoes">
+      <span class="nav-label">The volcano panels</span>
+      <span class="nav-title">Supplementary 5C / 5E / 5F, and the wider gene set</span>
+    </a>
     <a href="#limitations" data-target="limitations">
       <span class="nav-label">What does not reproduce</span>
-      <span class="nav-title">Figure 1D, Supplementary 5C / 5E / 5F</span>
+      <span class="nav-title">Figure 1D</span>
     </a>
     <a href="#notes" data-target="notes">
       <span class="nav-label">Notes</span>
@@ -1480,8 +1660,9 @@ TEMPLATE = """<!DOCTYPE html>
   <p>This page is a preview of the figure panels produced by the
     <code>BradyzoiteHeterogeneity-figures</code> repository: the rendered output of
     <code>scripts/make_figures.py</code>, drawn from the deposited dataset, one panel per entry.
-    Each carries the metadata it was drawn with and its status — reproduced exactly, a
-    reconstruction, or a recorded constant — taken from <code>docs/reproducibility.md</code>.</p>
+    Each carries the metadata it was drawn with and its status — reproduced exactly, reproduced
+    from a wider gene set, a reconstruction, or a recorded constant — taken from
+    <code>docs/reproducibility.md</code>.</p>
   <p>These are the individual panels as the analysis produced them. Panel letters, the Figure 1E
     grid and its row labels, the single shared colour bar across 1E and 1F, the in-plot cluster
     numbers in Figure 1B and the coloured row-group bands beside Figure 1C were all added during
@@ -1569,9 +1750,20 @@ TEMPLATE = """<!DOCTYPE html>
 
 <hr class="rule">
 
+<section class="doc" id="volcanoes">
+  <h2>The volcano panels</h2>
+  <p class="lede">Supplementary 5C, 5E and 5F were written off as unreproducible when this
+    repository was first put together. They are reproducible — the published test simply ran on a
+    wider gene set than the deposited object holds. Quoted from
+    <code>docs/reproducibility.md</code>, including what still is not reproduced.</p>
+  <div class="quoted">{{ volcano_doc }}</div>
+</section>
+
+<hr class="rule">
+
 <section class="doc" id="limitations">
   <h2>What does not reproduce</h2>
-  <p class="lede">Four published panels are not reproductions. This is the honest list, summarised
+  <p class="lede">One published panel is not a reproduction. This is the honest list, summarised
     from <code>docs/reproducibility.md</code>; the full text of that section follows.</p>
   <div class="missing">
     {%- for row in missing %}
@@ -1598,7 +1790,8 @@ TEMPLATE = """<!DOCTYPE html>
 </section>
 
 <footer>
-  <p>{{ panel_count }} panels, {{ image_count }} images, {{ page_size }} in one file. Generated by
+  <p>{{ panel_count }} cards covering {{ image_count }} rendered panels, {{ page_size }} in one
+    file. Generated by
     <code>scripts/make_preview.py</code> from <code>figures/</code>,
     <code>src/bzfig/constants.py</code>, <code>docs/reproducibility.md</code> and
     <code>data/</code>. No external resources: every image is embedded, and the page makes no
@@ -1662,7 +1855,6 @@ def main() -> int:
         row["Panel"]: row["What it shows"]
         for row in find_table(doc_section(repro, "Reproduced exactly"), "Panel", "What it shows")
     }
-    subsets = find_table(doc_section(repro, "Not reproducible"), "Panel", "Group A", "Group B")
 
     facts = dataset_facts(args.data)
     panels = build_panels(facts, verdicts)
@@ -1729,23 +1921,17 @@ def main() -> int:
                 "muted": False,
             }
         )
-        # The panels that are not regenerated still belong in the list, in their
-        # published order, pointing at the section that explains why.
-        for label in NOT_REGENERATED.get(panel["id"], ()):
-            nav_groups[-1]["entries"].append(
-                {
-                    "href": "limitations",
-                    "target": None,
-                    "label": label,
-                    "title": "not regenerated",
-                    "muted": True,
-                }
-            )
 
     limitations_doc = md_to_html(doc_section(repro, "Not reproducible"))
+    volcano_doc = md_to_html(doc_section(repro, "Reproduced from a wider gene set"))
     # Everything the page has not already quoted, in the order the document has it,
     # so a section added to the docs turns up here rather than being dropped.
-    quoted = ("Reproduced exactly", "Reproduced as a reconstruction", "Not reproducible")
+    quoted = (
+        "Reproduced exactly",
+        "Reproduced as a reconstruction",
+        "Reproduced from a wider gene set",
+        "Not reproducible",
+    )
     notes_doc = "\n".join(
         md_to_html(text) for heading, text in repro if not heading.startswith(quoted)
     )
@@ -1762,8 +1948,9 @@ def main() -> int:
             nav_groups=nav_groups,
             missing=[
                 {key: Markup(value) for key, value in row.items()}
-                for row in missing_panels(subsets)
+                for row in missing_panels(facts)
             ],
+            volcano_doc=Markup(volcano_doc),
             limitations_doc=Markup(limitations_doc),
             notes_doc=Markup(notes_doc),
             panel_count=len(panels),
@@ -1782,7 +1969,7 @@ def main() -> int:
     out = args.out.resolve()
     shown = out.relative_to(REPO) if out.is_relative_to(REPO) else out
     print(f"{shown}: {human(out.stat().st_size)}")
-    print(f"  {len(panels)} panels, {image_count} images ({human(total_bytes)} of WebP)")
+    print(f"  {len(panels)} cards, {image_count} panels ({human(total_bytes)} of WebP)")
     print(f"  images resized to {args.max_edge} px on the long edge, quality {args.quality}")
     return 0
 
