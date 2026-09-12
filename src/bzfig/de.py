@@ -1,10 +1,10 @@
 """The differential expression behind the Supplementary 5 volcano panels.
 
 The published test ran on the full 8322-gene ToxoDB-65 universe, not on the 8170
-genes of the deposited object: the missing 152 sit on unplaced contigs and carry
-the apicoplast and mitochondrial transcripts the panels label at the positive
-extreme. ``logcounts_extra.mtx.gz`` ships them, and widening the matrix back out
-is the only thing these panels need that the others do not.
+genes of the analysis object: the other 152 sit on unplaced contigs and carry the
+apicoplast and mitochondrial transcripts the panels label at the positive extreme.
+The deposited ``logcounts`` matrix holds all 8322, so these panels read it whole
+while the expression panels stay on the genes the scaled layer covers.
 
 The recipe — Wilcoxon rank-sum on the log-normalised matrix, Benjamini-Hochberg,
 genes detected in both groups, ``|log2FC| > 2`` — reproduces the published counts
@@ -15,7 +15,6 @@ the both-groups filter is forced rather than chosen.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from pathlib import Path
 
 import numpy as np
 import pandas as pd
@@ -24,7 +23,6 @@ import scipy.sparse as sp
 from anndata import AnnData
 
 from .constants import DE_ALPHA, DE_LOG2FC_CUTOFF, G1_PHASES
-from .data import DATA, load_extra_genes
 
 GROUP_A, GROUP_B = "A", "B"
 
@@ -73,13 +71,12 @@ COMPARISONS: dict[str, Comparison] = {
 }
 
 
-def expanded(adata: AnnData, datadir: Path = DATA) -> AnnData:
-    """``logcounts`` widened back to the 8322 genes the published test used."""
-    matrix, var = load_extra_genes(datadir)
+def as_expression(adata: AnnData) -> AnnData:
+    """``logcounts`` as ``X``, the shape ``rank_genes_groups`` expects."""
     return AnnData(
-        X=sp.hstack([adata.layers["logcounts"], matrix], format="csr"),
+        X=sp.csr_matrix(adata.layers["logcounts"]),
         obs=adata.obs.copy(),
-        var=pd.concat([adata.var[list(var.columns)], var]),
+        var=adata.var.copy(),
     )
 
 
@@ -94,7 +91,7 @@ def _groups(obs: pd.DataFrame, comparison: Comparison) -> pd.Series:
     return group
 
 
-def volcano_table(adata: AnnData, panel: str, datadir: Path = DATA) -> pd.DataFrame:
+def volcano_table(adata: AnnData, panel: str) -> pd.DataFrame:
     """One row per gene detected in both groups of *panel*'s comparison.
 
     ``mean_a`` / ``mean_b`` are the mean normalised expression of the gene in
@@ -104,7 +101,7 @@ def volcano_table(adata: AnnData, panel: str, datadir: Path = DATA) -> pd.DataFr
     published axis limits out of reach when the panels were first attempted.
     """
     comparison = COMPARISONS[panel]
-    wide = expanded(adata, datadir)
+    wide = as_expression(adata)
     group = _groups(wide.obs, comparison)
 
     subset = wide[group != ""].copy()

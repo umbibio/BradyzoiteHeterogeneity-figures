@@ -19,7 +19,7 @@ import numpy as np
 import pandas as pd
 import scipy.sparse as sp
 
-from .constants import PHASES
+from .constants import PHASES, RECOVERED_FLAG
 
 METADATA = json.loads(Path(__file__).with_name("figure_2h_supplementary_4_metadata.json").read_text())
 PHASE_COLORS = ["#3375a7", "#da8238", "#369539", "#bf3c3e", "#9972b3"]
@@ -30,14 +30,20 @@ def normalized_expression(adata):
 
     Normalize before selecting plotted genes. Zero-total/nonfinite/negative
     inputs are errors, not silently converted to a plausible-looking heatmap.
+
+    The cell total is closed over the analysis object's 8,170 genes, which is
+    what the original recipe divided by. The deposited matrix is wider than
+    that -- it carries the 152 genes recovered for the volcano panels -- so
+    those columns are excluded from the denominator.
     """
-    if adata.n_vars != 8170 or not adata.var_names.is_unique:
-        raise ValueError("These panels require the original 8,170-gene dataset, not the expanded DE matrix.")
+    kept = adata.var[RECOVERED_FLAG].to_numpy(dtype=bool)
+    if int(kept.sum()) != 8170 or not adata.var_names.is_unique:
+        raise ValueError("These panels require the analysis object's 8,170 genes.")
     matrix = sp.csr_matrix(adata.layers["logcounts"], dtype=np.float64, copy=True)
     if not np.isfinite(matrix.data).all() or (matrix.data < 0).any():
         raise ValueError("Expected finite nonnegative logcounts.")
     matrix.data = np.expm1(matrix.data)
-    totals = np.asarray(matrix.sum(axis=1)).ravel()
+    totals = np.asarray(matrix[:, kept].sum(axis=1)).ravel()
     if not np.isfinite(totals).all() or (totals <= 0).any():
         raise ValueError("Every cell must have a finite positive total.")
     matrix = (sp.diags(10000.0 / totals) @ matrix).tocsr()

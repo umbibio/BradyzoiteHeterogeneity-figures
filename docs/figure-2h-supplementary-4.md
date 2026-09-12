@@ -28,9 +28,10 @@ The panel-specific normalisation is recovered as:
 L_R = log1p(1e4 * expm1(L_shared) / rowSum(expm1(L_shared)))
 ```
 
-The denominator includes **all 8,170 genes**, before any plotted gene is
-selected — not the expanded 8,322-gene differential-expression matrix, which the
-module refuses outright. The conversion copies the matrix; it does not modify any
+The denominator includes **all 8,170 genes of the analysis object**, before any
+plotted gene is selected. The deposited matrix is wider than that — it carries
+152 more genes, recovered for the volcano panels — so the module closes the total
+over `var.in_analysis_object` and leaves those columns out of it. The conversion copies the matrix; it does not modify any
 shared input or expression layer, and no other panel sees it.
 
 - **Figure 2H:** Pearson correlations across the 6,505 in vivo cells; five genes

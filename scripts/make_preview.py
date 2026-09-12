@@ -257,7 +257,7 @@ def dataset_facts(datadir: Path) -> dict:
 
     # The volcano panels: the two groups of each published comparison, counted
     # the way bzfig.de._groups selects them, and what the test produced.
-    facts["universe"] = manifest["extra_genes"]["universe"]
+    facts["universe"] = manifest["recovered_genes"]["universe"]
     facts["de"] = manifest["verification"]["supplementary_5_de"]
     facts["volcano_cells"] = {}
     for panel, comparison in de.COMPARISONS.items():
@@ -1363,10 +1363,11 @@ def volcano_panel(panel: str, facts: dict) -> dict:
         ),
         (
             "Gene universe",
-            f"{number(universe['toxodb_65_genes'])} ToxoDB-65 genes — the "
-            f"{number(universe['deposited_genes'])} of <code>logcounts.mtx.gz</code> widened with "
-            f"the {number(universe['extra_genes'])} of <code>logcounts_extra.mtx.gz</code> "
-            "(<code>bzfig.de.expanded</code>); "
+            f"{number(universe['toxodb_65_genes'])} ToxoDB-65 genes, all of them in "
+            "<code>logcounts.mtx.gz</code> — the "
+            f"{number(universe['deposited_genes'])} of the analysis object and the "
+            f"{number(universe['extra_genes'])} recovered after them "
+            "(<code>var.in_analysis_object</code>); "
             f"{number(stats['genes_detected_in_both_groups'])} of them are detected in both "
             "groups and tested",
         ),

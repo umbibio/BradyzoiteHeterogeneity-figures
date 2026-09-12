@@ -15,8 +15,11 @@ shipped as a matrix. It is ``logcounts`` multiplied by a per-(dataset, gene)
 factor, and reconstructing it that way is bit-identical in float32 while saving
 60 MB. :func:`scaled_layer` does the reconstruction.
 
-The 152 genes that were filtered out of the deposited object before it was saved
-ride alongside in their own small matrix; :func:`load_extra_genes` reads it.
+``logcounts`` is the full 8322-gene ToxoDB-65 universe: the 8170 genes of the
+analysis object first, then the 152 it was subset away from before it was saved,
+recovered from the objects it was integrated from. ``var['in_analysis_object']``
+marks the first group; those 152 are the ones the Supplementary 5 volcanoes need,
+and they are the only genes with no ``logcounts_scaled`` factor.
 """
 
 from __future__ import annotations
@@ -31,7 +34,7 @@ import scipy.io
 import scipy.sparse as sp
 from anndata import AnnData
 
-from .constants import CLUSTER_COLORS
+from .constants import CLUSTER_COLORS, RECOVERED_FLAG
 
 REPO = Path(__file__).resolve().parent.parent.parent
 DATA = REPO / "data"
@@ -89,6 +92,10 @@ def scaled_layer(adata: AnnData, factors: pd.DataFrame) -> sp.csr_matrix:
     single per-gene factor does not work. Genes with no expression in a dataset
     have no factor; those entries carry no stored value anyway.
 
+    The 152 recovered genes have no factor in either dataset, because the layer
+    they would be scaled against never held them. Their entries come out zero,
+    and :func:`scaled_genes` is how a caller checks before asking for one.
+
     The result is float64, matching the layer in the original analysis object;
     the multiplication reproduces it to within one unit in the last place.
     """
@@ -103,6 +110,11 @@ def scaled_layer(adata: AnnData, factors: pd.DataFrame) -> sp.csr_matrix:
     per_entry = table[scaled.indices, datasets[row_of_entry]]
     scaled.data *= np.nan_to_num(per_entry)
     return scaled
+
+
+def scaled_genes(adata: AnnData) -> pd.Index:
+    """The genes ``logcounts_scaled`` is defined for — the analysis object's."""
+    return adata.var_names[adata.var[RECOVERED_FLAG].to_numpy(dtype=bool)]
 
 
 def _read_factors(datadir: Path, var_names: pd.Index) -> pd.DataFrame:
@@ -122,6 +134,7 @@ def _load_standard(datadir: Path, manifest: dict) -> AnnData:
     )
     obs = _apply_categories(obs, manifest)
     var = pd.read_csv(datadir / "var.csv.gz", index_col="gene_id", dtype="str").fillna("")
+    var[RECOVERED_FLAG] = var[RECOVERED_FLAG] == "True"
 
     adata = AnnData(obs=obs, var=var)
     adata.layers["logcounts"] = _read_matrix(datadir / "logcounts.mtx.gz", n_obs, n_vars)
@@ -182,24 +195,6 @@ def load_dataset(datadir: Path = DATA, source: str = "standard") -> AnnData:
     if source == "h5ad":
         return _apply_cluster_palette(_load_h5ad(datadir))
     raise ValueError(f"source must be 'standard' or 'h5ad', not {source!r}")
-
-
-def load_extra_genes(datadir: Path = DATA) -> tuple[sp.csr_matrix, pd.DataFrame]:
-    """The 152 genes on unplaced contigs that the deposited object drops.
-
-    Same cells in the same order as ``obs.csv.gz``, and normalised the same way
-    as ``logcounts``, so the two matrices sit side by side as the 8322-gene
-    universe the published differential expression ran on. Only the
-    Supplementary 5 volcano panels need them; :mod:`bzfig.de` does the widening.
-    """
-    datadir = Path(datadir)
-    manifest = read_manifest(datadir)
-    var = pd.read_csv(datadir / "var_extra.csv.gz", index_col="gene_id", dtype="str").fillna("")
-    n_vars = manifest["extra_genes"]["n_vars"]
-    if len(var) != n_vars:
-        raise ValueError(f"var_extra.csv.gz: expected {n_vars} genes, got {len(var)}")
-    matrix = _read_matrix(datadir / "logcounts_extra.mtx.gz", manifest["n_obs"], n_vars)
-    return matrix, var
 
 
 def load_supp1a_markers(datadir: Path = DATA) -> pd.Index:

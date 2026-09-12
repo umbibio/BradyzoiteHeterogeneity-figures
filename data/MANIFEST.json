@@ -9,7 +9,8 @@
     "pseudotime_csv_sha256": "2582526747bcdd4a8e4630984d51b526b3c0278637e505e56e5ceb530c5fcfd3"
   },
   "n_obs": 8057,
-  "n_vars": 8170,
+  "n_vars": 8322,
+  "n_vars_analysis_object": 8170,
   "gzip_level": 9,
   "matrix_orientation": "rows = cells (obs), columns = genes (var)",
   "layer_stats": [
@@ -17,15 +18,15 @@
       "layer": "logcounts",
       "dtype_source": "float32",
       "dtype_written": "float32",
-      "stored_entries": 4951318,
-      "true_nonzeros": 4951318,
+      "stored_entries": 5038252,
+      "true_nonzeros": 5038252,
       "explicit_zeros": 0,
-      "density": 0.07521862664865343,
-      "mtx_uncompressed_bytes": 102209834,
-      "mtx_gz_bytes": 18948763
+      "density": 0.07514131841869172,
+      "mtx_uncompressed_bytes": 103973645,
+      "mtx_gz_bytes": 19266971
     }
   ],
-  "extra_genes": {
+  "recovered_genes": {
     "n_vars": 152,
     "sources": {
       "counts_10x_h5": "non-reactivated_v65.h5",
@@ -67,14 +68,12 @@
     },
     "deposited_logcounts_diff_note": "how closely each denominator reproduces the deposited logcounts layer on the 8170 genes it holds. The per-source-object totals are within one float32 ulp; a single 8322-gene total is wrong for the me49 cells, whose source object has 8496 genes; the 8170-gene total -- all the deposited object can offer -- is wrong for every cell, which is why the published DE could not be reproduced from it",
     "stored_entries": 86934,
-    "layer": "logcounts_extra",
-    "dtype_source": "float32",
-    "dtype_written": "float32",
-    "true_nonzeros": 86934,
-    "explicit_zeros": 0,
-    "density": 0.07098600105824944,
-    "mtx_uncompressed_bytes": 1594197,
-    "mtx_gz_bytes": 400201
+    "folded_into": "logcounts.mtx.gz",
+    "columns": [
+      8170,
+      8322
+    ],
+    "var_flag": "in_analysis_object"
   },
   "optional_layers": {
     "logcounts_scaled": {
@@ -128,7 +127,9 @@
       "reconstruction_max_abs_diff": 1.4210854715202004e-14,
       "reconstruction_max_rel_diff": 4.440892098500626e-16,
       "reconstruction_bit_identical_float64": false,
-      "reconstruction_bit_identical_float32": true
+      "reconstruction_bit_identical_float32": true,
+      "genes_without_factor": 152,
+      "genes_without_factor_note": "the 152 genes recovered into logcounts.mtx.gz are absent from the analysis object's logcounts_scaled layer, so they have no factor in either dataset and no value to rebuild"
     }
   },
   "categoricals": {
@@ -223,33 +224,19 @@
     },
     "var": {
       "seqid": {
-        "n_categories": 14,
+        "n_categories": 114,
         "ordered": false,
-        "categories": [
-          "TGME49_chrII",
-          "TGME49_chrIII",
-          "TGME49_chrIV",
-          "TGME49_chrIX",
-          "TGME49_chrIa",
-          "TGME49_chrIb",
-          "TGME49_chrV",
-          "TGME49_chrVI",
-          "TGME49_chrVIII",
-          "TGME49_chrVIIa",
-          "TGME49_chrVIIb",
-          "TGME49_chrX",
-          "TGME49_chrXI",
-          "TGME49_chrXII"
-        ]
+        "categories": null,
+        "note": "too many levels to list; the level order is alphabetical in the source object and the CSV carries the values verbatim"
       },
       "gene_name": {
-        "n_categories": 1370,
+        "n_categories": 1373,
         "ordered": false,
         "categories": null,
         "note": "too many levels to list; the level order is alphabetical in the source object and the CSV carries the values verbatim"
       },
       "gene_description": {
-        "n_categories": 3244,
+        "n_categories": 3301,
         "ordered": false,
         "categories": null,
         "note": "too many levels to list; the level order is alphabetical in the source object and the CSV carries the values verbatim"
@@ -277,7 +264,8 @@
     "var": {
       "seqid": "category",
       "gene_name": "category",
-      "gene_description": "category"
+      "gene_description": "category",
+      "in_analysis_object": "bool"
     },
     "obsm": {
       "3d_umap_harmony_integration": "float32",
@@ -298,13 +286,18 @@
       "logcounts": {
         "shape": [
           8057,
-          8170
+          8322
         ],
-        "stored_entries": 4951318,
+        "stored_entries": 5038252,
         "source_dtype": "float32",
         "max_abs_diff": 0.0,
         "max_abs_diff_as_float64": 2.3840332019631205e-07,
-        "bit_identical": true
+        "bit_identical": true,
+        "analysis_object_columns": [
+          0,
+          8170
+        ],
+        "analysis_object_columns_bit_identical": true
       }
     },
     "obs": {
@@ -345,7 +338,8 @@
     "var": {
       "seqid": "exact (string values)",
       "gene_name": "exact (string values)",
-      "gene_description": "exact (string values)"
+      "gene_description": "exact (string values)",
+      "in_analysis_object": "exact (string values)"
     },
     "obsm": {
       "3d_umap_harmony_integration": {
@@ -380,15 +374,15 @@
       "bit_identical_float32": true,
       "h5ad_varm": "identical"
     },
-    "extra_genes": {
-      "shape": [
-        8057,
-        152
+    "recovered_genes": {
+      "columns": [
+        8170,
+        8322
       ],
-      "stored_entries": 86934,
-      "source_dtype": "float32",
-      "max_abs_diff": 0.0,
-      "bit_identical": true
+      "n_vars": 152,
+      "var_flag": "in_analysis_object",
+      "flag_false_count": 152,
+      "note": "checked above as part of logcounts.mtx.gz: the columns before this range are bit-identical to the deposited layer"
     },
     "extra_files": {
       "supp1a_marker_genes.csv": "byte-identical to source"
@@ -440,30 +434,58 @@
   ],
   "files": [
     {
+      "filename": "figure_3ef_counts.mtx.gz",
+      "sha256": "2548e4a54ad6184fb576d2565fbcd2be7ee7ba35c170ef0d65cdd51acbae8955",
+      "bytes": 8470419,
+      "description": "Integer count matrix for the Figure 3E/3F integration, 6881 cells x 8778 genes (6505 in vivo bradyzoites + 376 in vivo tachyzoites from samples S1 and S2). This is the matrix the deposited scVI checkpoint was trained on",
+      "urls": []
+    },
+    {
+      "filename": "figure_3ef_embedding.csv.gz",
+      "sha256": "16da6bb2be50aa6537398ebe80a611ccfb6c9ae9f9b53b47a6f65c8d49286ace",
+      "bytes": 108463,
+      "description": "2-D UMAP of the scVI latent space, the coordinates Figure 3E and 3F are drawn from. Regenerate with scripts/export_integration.py",
+      "urls": []
+    },
+    {
+      "filename": "figure_3ef_obs.csv.gz",
+      "sha256": "aa5beeb3aae6aa78c0d277f39864a447df826cfda7ab1f10a008bd0678df8c13",
+      "bytes": 36952,
+      "description": "Cell table for figure_3ef_counts.mtx.gz: sample (NR / S1 / S2) and cc_phase. cc_phase is blank for the in vivo bradyzoites, which carry no transferred label here",
+      "urls": []
+    },
+    {
+      "filename": "figure_3ef_scvi_model.pt",
+      "sha256": "20ba1b3d8721fcef62f448908cff5a801c96a50d359014007b5ba1c5c06c81be",
+      "bytes": 22928227,
+      "description": "Trained scVI checkpoint behind Figure 3E/3F (scvi-tools 1.4.2, 10 latent dimensions, 94 epochs, best validation ELBO 1393.4), as saved by the analysis",
+      "urls": []
+    },
+    {
+      "filename": "figure_3ef_var.csv.gz",
+      "sha256": "5e7b20a7d055cccdccb48df266562dec2269577f87b1995d6d2604e4dbad0127",
+      "bytes": 21892,
+      "description": "Gene table for figure_3ef_counts.mtx.gz, in the order the scVI checkpoint expects",
+      "urls": []
+    },
+    {
       "filename": "figure_dataset.h5ad",
-      "sha256": "55b1ed26bb821c91306ac3d88de44aaf522c15dc3abcb0e6d8efe31c54c869a3",
-      "bytes": 15090154,
+      "sha256": "4409af4db8d45b1242eb43c6d83be3f1b108cb0d1ed79ed49c7f56d65fbd061e",
+      "bytes": 15323563,
       "description": "Stripped AnnData version of this package for scanpy users. X is None and the matrices live in .layers, so nothing is duplicated. varm['logcounts_scaled_factors'] (n_vars x n_datasets, column order in uns['logcounts_scaled_factors_datasets']) lets logcounts_scaled be rebuilt without any other file",
       "urls": []
     },
     {
       "filename": "logcounts.mtx.gz",
-      "sha256": "0fc5da9e16f60080481cac11888a4b83c2576a0a54206858a922d74c484be875",
-      "bytes": 18948763,
-      "description": "MatrixMarket (real, coordinate) log-normalised expression, rows = cells, columns = genes; float32 values written with shortest round-trip decimal representation",
-      "urls": []
-    },
-    {
-      "filename": "logcounts_extra.mtx.gz",
-      "sha256": "432171784199a14fca03928addbb9710278763fb476fa3bce77567f87e55a545",
-      "bytes": 400201,
-      "description": "MatrixMarket (real, coordinate) log-normalised expression of the 152 ToxoDB-65 genes the deposited object does not carry, rows = cells, columns = genes; row order matches obs.csv.gz, column order matches var_extra.csv.gz. Same normalisation as logcounts.mtx.gz, so the two side by side are the 8322-gene universe the published differential expression ran on (bzfig.de)",
+      "sha256": "6b8391f64e3d6ba9e61044b3d75a2573a156e7f26d2dcce195642e9801c7d885",
+      "bytes": 19266971,
+      "description": "MatrixMarket (real, coordinate) log-normalised expression, rows = cells, columns = genes; float32 values written with shortest round-trip decimal representation. All 8322 ToxoDB-65 genes: the 8170 of the analysis object in its own order, then the 152 recovered from the objects it was integrated from. var['in_analysis_object'] marks the first group, and the export checks those columns are still bit-identical to the deposited layer",
       "urls": []
     },
     {
       "filename": "logcounts_scaled_factors.csv.gz",
-      "sha256": "6bfd2dcfa47d59b9e2ef42b4bc9c5513fca780b0e8d9f6901d53bfb6d656a378",
-      "bytes": 196727,
+      "sha256": "8660f401efd476130956d88245c18f0069bb1029ef8a67a0aeb73428e55cf2f2",
+      "bytes": 197768,
       "description": "Long-form table (dataset, gene_id, factor), float64. Required: logcounts_scaled[i, j] = logcounts[i, j] * factor[obs.dataset[i], j]. The reconstruction is bit-identical to the source layer in float32 and accurate to 1 ulp (4.4e-16 relative) in float64, which is why logcounts_scaled.mtx.gz is not shipped",
       "urls": []
     },
@@ -504,55 +526,13 @@
     },
     {
       "filename": "var.csv.gz",
-      "sha256": "b35d05ab8e880c7c7697e9de878e8d057905bfd8f07612fed3ae04f78768cfc5",
-      "bytes": 76512,
-      "description": "Per-gene metadata, index column 'gene_id'; includes gene_name and gene_description",
-      "urls": []
-    },
-    {
-      "filename": "var_extra.csv.gz",
-      "sha256": "c4530f00e5b2a7894c36143935f267013bb5561abae0870ce75dcf18de5b9c0d",
-      "bytes": 1814,
-      "description": "Per-gene metadata for logcounts_extra.mtx.gz, index column 'gene_id'; same columns as var.csv.gz. Every one of these genes sits on an unplaced KE* contig",
-      "urls": []
-    },
-    {
-      "filename": "figure_3ef_counts.mtx.gz",
-      "sha256": "2548e4a54ad6184fb576d2565fbcd2be7ee7ba35c170ef0d65cdd51acbae8955",
-      "bytes": 8470419,
-      "description": "Integer count matrix for the Figure 3E/3F integration, 6881 cells x 8778 genes (6505 in vivo bradyzoites + 376 in vivo tachyzoites from samples S1 and S2). This is the matrix the deposited scVI checkpoint was trained on",
-      "urls": []
-    },
-    {
-      "filename": "figure_3ef_obs.csv.gz",
-      "sha256": "aa5beeb3aae6aa78c0d277f39864a447df826cfda7ab1f10a008bd0678df8c13",
-      "bytes": 36952,
-      "description": "Cell table for figure_3ef_counts.mtx.gz: sample (NR / S1 / S2) and cc_phase. cc_phase is blank for the in vivo bradyzoites, which carry no transferred label here",
-      "urls": []
-    },
-    {
-      "filename": "figure_3ef_var.csv.gz",
-      "sha256": "5e7b20a7d055cccdccb48df266562dec2269577f87b1995d6d2604e4dbad0127",
-      "bytes": 21892,
-      "description": "Gene table for figure_3ef_counts.mtx.gz, in the order the scVI checkpoint expects",
-      "urls": []
-    },
-    {
-      "filename": "figure_3ef_scvi_model.pt",
-      "sha256": "20ba1b3d8721fcef62f448908cff5a801c96a50d359014007b5ba1c5c06c81be",
-      "bytes": 22928227,
-      "description": "Trained scVI checkpoint behind Figure 3E/3F (scvi-tools 1.4.2, 10 latent dimensions, 94 epochs, best validation ELBO 1393.4), as saved by the analysis",
-      "urls": []
-    },
-    {
-      "filename": "figure_3ef_embedding.csv.gz",
-      "sha256": "16da6bb2be50aa6537398ebe80a611ccfb6c9ae9f9b53b47a6f65c8d49286ace",
-      "bytes": 108463,
-      "description": "2-D UMAP of the scVI latent space, the coordinates Figure 3E and 3F are drawn from. Regenerate with scripts/integrate_s1_s2.py",
+      "sha256": "b4d76f32ba53285dcb0ae066f0fe5dd5e47bbf6f08f26d4613507fd45b914f87",
+      "bytes": 79120,
+      "description": "Per-gene metadata, index column 'gene_id'; includes gene_name, gene_description and in_analysis_object, which is False for the 152 genes recovered from the source objects. Those 152 have no logcounts_scaled factor: they are absent from that layer upstream",
       "urls": []
     }
   ],
-  "total_bytes": 66861315,
+  "total_bytes": 67014566,
   "figure_3ef": {
     "n_obs": 6881,
     "n_vars": 8778,

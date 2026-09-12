@@ -109,30 +109,34 @@ for the expression matrix, gzipped CSV for the cell and gene metadata and the
 embeddings, JSON for the palettes — alongside an `.h5ad` for convenience. Either
 route loads through `bzfig.data.load_dataset`.
 
-A second, narrow matrix carries the 152 genes that were filtered out of the
-deposited object before it was saved — the unplaced contigs, with the apicoplast
-and mitochondrial transcripts on them. Only the volcano panels need it, through
-`bzfig.data.load_extra_genes`; `bzfig.de` puts the two matrices side by side to
-run its reconstruction. Small differences from the manuscript counts are
-documented in the reproducibility notes.
+The matrix is the full 8,322-gene ToxoDB-65 universe. The analysis object had
+been subset to the 8,170 genes on the nuclear chromosomes before it was saved;
+the other 152 sit on unplaced contigs and carry the apicoplast and mitochondrial
+transcripts, and they are recovered from the two objects the analysis integrated
+and appended after the 8,170. `var.in_analysis_object` says which is which, and
+the export checks that the first 8,170 columns are still bit-identical to the
+deposited layer. Only the volcano panels look at the recovered genes.
 
 Figure 3E and 3F come from a second experiment — in vivo tachyzoites
 integrated with the in vivo bradyzoites by scVI. The package carries that
 integration in full: the count matrix the model was trained on, its cell and gene
 tables, the trained checkpoint, and the UMAP coordinates the two panels are drawn
-from. Rendering them needs nothing extra; `scripts/integrate_s1_s2.py` regenerates
+from. Rendering them needs nothing extra; `scripts/export_integration.py` regenerates
 the coordinates from the checkpoint and needs the `integration` extra
 (`pip install -e '.[integration]'`).
 
 `scripts/export_dataset.py` documents how the deposited dataset was cut down from
-the full analysis object.
+the full analysis object, and writes `MANIFEST.json`. It is the only thing that
+does: `export_integration.py` adds the Figure 3E/3F section through the same
+code, so the checksums and the file list are never edited by hand.
 
 ## Layout
 
 ```
 data/           deposited input (LFS) + MANIFEST.json
-scripts/        fetch_data.py, make_figures.py, export_dataset.py
-src/bzfig/      panel implementations, figure metadata and shared data loaders
+scripts/        fetch_data.py, make_figures.py, export_dataset.py, export_integration.py
+src/bzfig/      panels.py, figure_2h_supplementary_4.py, figure_3ef.py,
+                constants.py, data.py, de.py
 tests/          unit tests for the Figure 2H / Supplementary 4 heatmaps
 figures/        rendered output
 docs/           reproducibility notes

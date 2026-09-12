@@ -44,16 +44,18 @@ rendered panel.
 arithmetic of the original R code from the deposited `logcounts` alone.
 
 The normalisation is the key step. The original heatmap scripts ran Seurat
-`LogNormalize` *after* subsetting to the 8,170 deposited genes, whereas the
-deposited `logcounts` layer was normalised before that subset, over the wider
-pre-subset universe. Re-closing the deposited layer over the 8,170 genes recovers
-the original values:
+`LogNormalize` *after* subsetting to the analysis object's 8,170 genes, whereas
+the `logcounts` layer was normalised before that subset, over the wider
+pre-subset universe. Re-closing that layer over the 8,170 genes recovers the
+original values:
 
 ```
 L_R = log1p(1e4 * expm1(L_shared) / rowSum(expm1(L_shared)))
 ```
 
-The row sum runs over all 8,170 genes, before any plotted gene is selected. It is
+The row sum runs over the analysis object's 8,170 genes — `var.in_analysis_object`,
+not the 152 recovered for the volcano panels — before any plotted gene is
+selected. It is
 local to these two panels and copies the matrix, so no shared layer is modified.
 The denominator matters — measured on the Figure 2H matrix against the original
 values:
@@ -61,13 +63,13 @@ values:
 | Denominator | max abs. difference | displayed 2-dp values matched |
 | --- | --- | --- |
 | none (deposited `logcounts` as shipped) | 1.0e-03 | 143 / 145 |
-| the 8,322-gene differential-expression universe | 1.0e-03 | 143 / 145 |
-| **the 8,170 deposited genes** | **1.9e-09** | **145 / 145** |
+| the full 8,322-gene universe | 1.0e-03 | 143 / 145 |
+| **the analysis object's 8,170 genes** | **1.9e-09** | **145 / 145** |
 
 The middle row is a no-op rather than a near miss: for these 6,505 in vivo cells
 `expm1(logcounts)` already sums to 10,000 over the 8,322 genes, so re-closing
 over that set returns the deposited layer unchanged to within float32 rounding.
-Over the 8,170 deposited genes the same totals run 7,625 … 10,000, and it is that
+Over the analysis object's 8,170 the same totals run 7,625 … 10,000, and it is that
 missing mass, gene by gene and cell by cell, that the original scripts divided
 out after subsetting.
 
@@ -175,7 +177,7 @@ The integration ships with this package as four files — the 6,881 × 8,778 cou
 matrix the model was trained on, its cell and gene tables, and the trained
 checkpoint — plus `figure_3ef_embedding.csv.gz`, the UMAP coordinates the panels
 are drawn from. Rendering needs neither torch nor scvi-tools;
-`scripts/integrate_s1_s2.py` regenerates the embedding from the checkpoint and
+`scripts/export_integration.py` regenerates the embedding from the checkpoint and
 needs the `integration` extra.
 
 The published integration uses samples **S1 (166 cells) and S2 (210)**, 376
@@ -186,7 +188,7 @@ the published panels; it is not shipped here.
 **The layout is the checkpoint's, not the published figure's.** Loading the
 deposited checkpoint is deterministic — the latent is bit-identical across calls,
 and so is the UMAP computed from it — so this embedding reproduces exactly, and
-`scripts/integrate_s1_s2.py` reports the difference against the shipped file
+`scripts/export_integration.py` reports the difference against the shipped file
 whenever it runs. What does not carry over is the frame: training a fresh model
 with the same settings converges to the same quality (89 epochs at best
 validation ELBO 1403.7, against the checkpoint's 94 at 1393.4) but lays the cells
@@ -214,18 +216,19 @@ Figure 3G (flow cytometry) and Figure 3H are outside this dataset.
 ## The volcano panels — Supplementary Figure 5C, 5E and 5F
 
 The published differential expression ran on the full **8322-gene** ToxoDB-65
-universe; the deposited object carries **8170** genes. The missing 152 all sit on
+universe; the analysis object had been subset to **8170**. The other 152 all sit on
 unplaced `KE*` contigs and include the apicoplast and mitochondrial transcripts —
 ORF F, two cytochrome b's, cytochrome c oxidase III — that the published panels
-label at the positive extreme. They ship beside the deposited matrix as
-`logcounts_extra.mtx.gz` (8057 cells × 152 genes, 86,934 stored values, 391 KB)
-and `var_extra.csv.gz`; `bzfig.de` puts the two matrices side by side and runs the
-test.
+label at the positive extreme. They are recovered from the two objects the
+analysis integrated (86,934 stored values) and appended to `logcounts.mtx.gz`
+after the 8170, so the deposited matrix *is* the published universe;
+`var.in_analysis_object` is False for them. The export checks that the first 8170
+columns are still bit-identical to the deposited layer.
 
 The recipe:
 
 ```
-universe     all 8322 ToxoDB-65 genes (logcounts.mtx.gz + logcounts_extra.mtx.gz)
+universe     all 8322 ToxoDB-65 genes (logcounts.mtx.gz)
 test         sc.tl.rank_genes_groups(groups=[A], reference=B, method="wilcoxon",
                                      tie_correct=False)
 filter       genes whose mean expm1(logcounts) is > 0 in *both* groups
@@ -272,18 +275,18 @@ published 676 / 1146.
 
 Normalisation ran *before* the gene subset, and per source object: each cell
 divided by its own total over that object's full gene set, scaled to 1e4 and
-`log1p`'d. Applied to the 8170 genes the deposited object kept, that reproduces
+`log1p`'d. Applied to the 8170 genes the analysis object kept, that reproduces
 its `logcounts` layer to within one float32 ulp. Nothing else does.
 
 | Denominator | Largest difference from the deposited `logcounts` |
 | --- | --- |
 | each cell's total in its own source object — 8322 genes for the in vivo 10x run, 8496 for the me49 object | **4.8e-07**, one float32 ulp |
 | one 8322-gene total for every cell | 5.3e-03 — wrong for the me49 cells |
-| the 8170 deposited genes | 0.27 — wrong for every cell |
+| the analysis object's 8170 genes | 0.27 — wrong for every cell |
 
-The deposited object cannot reproduce its own normalisation, so the published
+The analysis object cannot reproduce its own normalisation, so the published
 test ran on something wider. `scripts/export_dataset.py` measures all three on
-every run, records them in `MANIFEST.json` under `extra_genes`, and refuses to
+every run, records them in `MANIFEST.json` under `recovered_genes`, and refuses to
 write the package if the first row stops holding.
 
 ### The cutoff and the both-groups filter
@@ -359,7 +362,7 @@ not recover the six numbers:
 | Cluster | 0 | 1 | 2 | 3 | 4 | 5 |
 | --- | --- | --- | --- | --- | --- | --- |
 | Published | 38 | 93 | 80 | 881 | 14 | 47 |
-| Re-derived, 8170 deposited genes | 37 | 94 | 84 | 861 | 18 | 52 |
+| Re-derived, the analysis object's 8170 genes | 37 | 94 | 84 | 861 | 18 | 52 |
 | Re-derived, full 8322 genes | 45 | 93 | 84 | 863 | 18 | 53 |
 
 The differences are small and go in both directions, and nothing suggests a

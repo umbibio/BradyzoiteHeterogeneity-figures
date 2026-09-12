@@ -41,17 +41,16 @@ Package layout
     MatrixMarket coordinate file, **rows = cells, columns = genes** (the
     transpose of the ``.mtx`` CellRanger writes).  Row *i* is row *i* of
     ``obs.csv.gz``, column *j* is row *j* of ``var.csv.gz``.  Values are the
-    shortest round-trip decimal form of the source float32.
+    shortest round-trip decimal form of the source float32.  It is the full
+    8322-gene ToxoDB-65 universe: the 8170 genes of the analysis object first,
+    in its order, then the 152 it was subset away from, recovered from the two
+    objects it was integrated from (see ``build_extra_genes``).  The export
+    asserts that the first 8170 columns are still bit-identical to the
+    deposited layer, and ``var['in_analysis_object']`` says which genes those
+    are.
 ``logcounts_scaled_factors.csv.gz``
     Long-form ``dataset,gene_id,factor`` table (float64) with
     ``logcounts_scaled[i, j] = logcounts[i, j] * factor[obs.dataset[i], j]``.
-``logcounts_extra.mtx.gz`` / ``var_extra.csv.gz``
-    The same, for the 152 ToxoDB-65 genes the analysis object was subset away
-    from before it was saved -- all of them on unplaced ``KE*`` contigs, and
-    among them the apicoplast and mitochondrial transcripts the Supplementary 5
-    volcanoes plot.  Same cells in the same order, same normalisation, so the
-    two matrices side by side are the 8322-gene universe the published
-    differential expression ran on.
 ``obs.csv.gz`` / ``var.csv.gz``
     Cell / gene metadata; the first column is the index (``barcode`` /
     ``gene_id``).
@@ -173,7 +172,7 @@ OBS_EMBEDDING_DUPLICATES = {
 #: var columns to export (on top of the index, the gene id).  ``seqid`` is kept
 #: because it documents which contigs are present: the deposited object holds
 #: the 14 nuclear chromosomes only, and the 152 genes on the unplaced ``KE*``
-#: contigs are shipped beside it -- see ``build_extra_genes``.
+#: contigs are recovered into it -- see ``build_extra_genes``.
 KEEP_VAR = ["seqid", "gene_name", "gene_description"]
 
 #: obsm keys to export.  ``3d_umap_harmony_integration`` is required for the
@@ -230,14 +229,17 @@ FACTORS_NAME = "logcounts_scaled_factors.csv.gz"
 FACTORS_VARM_KEY = "logcounts_scaled_factors"
 
 #: The genes the analysis object was subset away from.  ToxoDB-65 has 8322
-#: protein-coding genes; the deposited object keeps the 8170 that sit on the 14
+#: protein-coding genes; the analysis object keeps the 8170 that sit on the 14
 #: nuclear chromosomes.  The other 152 are on unplaced ``KE*`` contigs and carry
 #: the apicoplast and mitochondrial transcripts that the Supplementary 5 volcano
-#: panels plot at the positive extreme, so they are shipped as a second, narrow
-#: matrix rather than folded into ``logcounts.mtx.gz``, which stays exactly the
-#: deposited layer.
-EXTRA_MATRIX_NAME = "logcounts_extra.mtx.gz"
-EXTRA_VAR_NAME = "var_extra.csv.gz"
+#: panels plot at the positive extreme.  They are recovered from the two source
+#: objects and appended to ``logcounts.mtx.gz``, so the package has one matrix
+#: and one gene table; this column marks which genes came from where.
+RECOVERED_FLAG = "in_analysis_object"
+
+#: Files earlier versions of the package shipped, removed when the 152 genes
+#: were folded into the matrix.  Deleted on export so a re-run leaves no orphans.
+LEGACY_NAMES = ("logcounts_extra.mtx.gz", "var_extra.csv.gz")
 
 # A sibling checkout of the methods repository, so the defaults do not depend
 # on where any one author keeps their workspace. Every input below can be
@@ -270,7 +272,11 @@ DESCRIPTIONS: dict[str, str] = {
     "logcounts.mtx.gz": (
         "MatrixMarket (real, coordinate) log-normalised expression, rows = "
         "cells, columns = genes; float32 values written with shortest "
-        "round-trip decimal representation"
+        "round-trip decimal representation. All 8322 ToxoDB-65 genes: the 8170 "
+        "of the analysis object in its own order, then the 152 recovered from "
+        "the objects it was integrated from. var['in_analysis_object'] marks "
+        "the first group, and the export checks those columns are still "
+        "bit-identical to the deposited layer"
     ),
     "logcounts_scaled.mtx.gz": (
         "MatrixMarket (real, coordinate) gene-scaled log expression, rows = "
@@ -278,27 +284,16 @@ DESCRIPTIONS: dict[str, str] = {
         "round-trip decimal representation. Exactly = logcounts * a per-"
         "(dataset, gene) constant -- see logcounts_scaled_factors.csv.gz"
     ),
-    EXTRA_MATRIX_NAME: (
-        "MatrixMarket (real, coordinate) log-normalised expression of the 152 "
-        "ToxoDB-65 genes the deposited object does not carry, rows = cells, "
-        "columns = genes; row order matches obs.csv.gz, column order matches "
-        "var_extra.csv.gz. Same normalisation as logcounts.mtx.gz, so the two "
-        "side by side are the 8322-gene universe the published differential "
-        "expression ran on (bzfig.de)"
-    ),
-    EXTRA_VAR_NAME: (
-        "Per-gene metadata for logcounts_extra.mtx.gz, index column 'gene_id'; "
-        "same columns as var.csv.gz. Every one of these genes sits on an "
-        "unplaced KE* contig"
-    ),
     "obs.csv.gz": (
         "Per-cell metadata, index column 'barcode'; includes cell_cycle_group "
         "(CCC/MCC) and the pseudotime columns. Factor level order is in the "
         "'categoricals' section of MANIFEST.json"
     ),
     "var.csv.gz": (
-        "Per-gene metadata, index column 'gene_id'; includes gene_name and "
-        "gene_description"
+        "Per-gene metadata, index column 'gene_id'; includes gene_name, "
+        "gene_description and in_analysis_object, which is False for the 152 "
+        "genes recovered from the source objects. Those 152 have no "
+        "logcounts_scaled factor: they are absent from that layer upstream"
     ),
     "uns_colors.json": "All *_colors palettes from adata.uns, as hex strings",
     FACTORS_NAME: (
@@ -307,6 +302,32 @@ DESCRIPTIONS: dict[str, str] = {
         "The reconstruction is bit-identical to the source layer in float32 "
         "and accurate to 1 ulp (4.4e-16 relative) in float64, which is why "
         "logcounts_scaled.mtx.gz is not shipped"
+    ),
+    # The Figure 3E/3F integration, written by scripts/export_integration.py.
+    # Their descriptions live here so the manifest is generated from one table.
+    "figure_3ef_counts.mtx.gz": (
+        "Integer count matrix for the Figure 3E/3F integration, 6881 cells x "
+        "8778 genes (6505 in vivo bradyzoites + 376 in vivo tachyzoites from "
+        "samples S1 and S2). This is the matrix the deposited scVI checkpoint "
+        "was trained on"
+    ),
+    "figure_3ef_obs.csv.gz": (
+        "Cell table for figure_3ef_counts.mtx.gz: sample (NR / S1 / S2) and "
+        "cc_phase. cc_phase is blank for the in vivo bradyzoites, which carry "
+        "no transferred label here"
+    ),
+    "figure_3ef_var.csv.gz": (
+        "Gene table for figure_3ef_counts.mtx.gz, in the order the scVI "
+        "checkpoint expects"
+    ),
+    "figure_3ef_embedding.csv.gz": (
+        "2-D UMAP of the scVI latent space, the coordinates Figure 3E and 3F "
+        "are drawn from. Regenerate with scripts/export_integration.py"
+    ),
+    "figure_3ef_scvi_model.pt": (
+        "Trained scVI checkpoint behind Figure 3E/3F (scvi-tools 1.4.2, 10 "
+        "latent dimensions, 94 epochs, best validation ELBO 1393.4), as saved "
+        "by the analysis"
     ),
     H5AD_NAME: (
         "Stripped AnnData version of this package for scanpy users. X is None "
@@ -874,7 +895,7 @@ def verify_supplementary_5(outdir: Path) -> dict:
     adata = load_dataset(outdir)
     results = {}
     for panel in de.COMPARISONS:
-        table = de.volcano_table(adata, panel, outdir)
+        table = de.volcano_table(adata, panel)
         counts = de.counts(table)
         expected = constants.SUPP5_DE_COUNTS_REPRODUCED[panel]
         assert counts == expected, f"Supplementary {panel}: {counts} != {expected}"
@@ -891,7 +912,7 @@ def verify_supplementary_5(outdir: Path) -> dict:
 def verify(outdir: Path, adata, obs: pd.DataFrame, var: pd.DataFrame,
            obsm_keys: list[str], uns_colors: dict,
            export_layers: dict[str, str], extras_root: Path,
-           extra_matrix=None, extra_var: pd.DataFrame | None = None,
+           export_matrices: dict, n_shipped: int,
            check_h5ad: bool = True) -> dict:
     """Re-read every exported file and assert it matches the in-memory source.
 
@@ -902,7 +923,7 @@ def verify(outdir: Path, adata, obs: pd.DataFrame, var: pd.DataFrame,
 
     # ---- MatrixMarket layers -------------------------------------------
     for name, dtype in export_layers.items():
-        src = to_csr(adata.layers[name])
+        src = to_csr(export_matrices[name])
         with gzip.open(outdir / f"{name}.mtx.gz", "rb") as fh:
             back = to_csr(mmread(fh))
         assert back.shape == src.shape, f"{name}: shape {back.shape} != {src.shape}"
@@ -925,6 +946,15 @@ def verify(outdir: Path, adata, obs: pd.DataFrame, var: pd.DataFrame,
                                           - want.astype(np.float64)))) if len(want) else 0.0
         exact = bool(np.array_equal(got, want))
         assert exact, f"{name}: values differ, max abs diff {max_abs}"
+        # The first n_shipped columns must still be the deposited layer,
+        # value for value -- that is what folding the recovered genes in at
+        # the end of the matrix is supposed to preserve.
+        deposited = to_csr(adata.layers[name])
+        kept = to_csr(back[:, :n_shipped]).astype(deposited.data.dtype)
+        assert kept.shape == deposited.shape, f"{name}: analysis-object columns"
+        assert np.array_equal(kept.indices, deposited.indices), f"{name}: columns"
+        assert np.array_equal(kept.indptr, deposited.indptr), f"{name}: rows"
+        assert np.array_equal(kept.data, deposited.data), f"{name}: values"
         results["layers"][name] = {
             "shape": list(src.shape),
             "stored_entries": int(src.nnz),
@@ -932,6 +962,8 @@ def verify(outdir: Path, adata, obs: pd.DataFrame, var: pd.DataFrame,
             "max_abs_diff": max_abs,
             "max_abs_diff_as_float64": max_abs_f64,
             "bit_identical": exact,
+            "analysis_object_columns": [0, int(n_shipped)],
+            "analysis_object_columns_bit_identical": True,
         }
 
     # ---- obs -------------------------------------------------------------
@@ -989,7 +1021,14 @@ def verify(outdir: Path, adata, obs: pd.DataFrame, var: pd.DataFrame,
         g = np.array(
             [None if pd.isna(v) else str(v) for v in back_var[col]], dtype=object
         )
-        assert np.array_equal(w, g), f"var['{col}'] values differ"
+        if not np.array_equal(w, g):
+            bad = np.flatnonzero(np.array([a != b for a, b in zip(w, g)]))
+            raise AssertionError(
+                f"var['{col}'] values differ at {len(bad)} rows, e.g. "
+                + "; ".join(
+                    f"{var.index[i]!r}: {w[i]!r} != {g[i]!r}" for i in bad[:5]
+                )
+            )
         results["var"][col] = "exact (string values)"
 
     # ---- obsm ------------------------------------------------------------
@@ -1026,7 +1065,7 @@ def verify(outdir: Path, adata, obs: pd.DataFrame, var: pd.DataFrame,
         assert list(map(str, back_ad.obs_names)) == list(map(str, obs.index))
         assert list(map(str, back_ad.var_names)) == list(map(str, var.index))
         for name in export_layers:
-            src = to_csr(adata.layers[name])
+            src = to_csr(export_matrices[name])
             got = to_csr(back_ad.layers[name])
             assert np.array_equal(got.indices, src.indices), f"h5ad {name} indices"
             assert np.array_equal(got.indptr, src.indptr), f"h5ad {name} indptr"
@@ -1071,7 +1110,10 @@ def verify(outdir: Path, adata, obs: pd.DataFrame, var: pd.DataFrame,
     factors_path = outdir / FACTORS_NAME
     if "logcounts_scaled" in adata.layers and factors_path.exists():
         with gzip.open(outdir / "logcounts.mtx.gz", "rb") as fh:
-            L = to_csr(mmread(fh))
+            full = to_csr(mmread(fh))
+        n_genes = full.shape[1]
+        # The scaled layer only ever covered the analysis object's genes.
+        L = to_csr(full[:, :n_shipped])
         S = to_csr(adata.layers["logcounts_scaled"])
         assert np.array_equal(L.indices, S.indices), "scaled layer pattern"
         assert np.array_equal(L.indptr, S.indptr), "scaled layer pattern"
@@ -1081,10 +1123,11 @@ def verify(outdir: Path, adata, obs: pd.DataFrame, var: pd.DataFrame,
             float_precision="round_trip",
         )
         datasets = list(dict.fromkeys(fac["dataset"]))
-        n_genes = L.shape[1]
         assert len(fac) == len(datasets) * n_genes, "factor table length"
         assert list(fac["gene_id"][:n_genes]) == list(map(str, var.index))
         wide = fac["factor"].to_numpy(dtype=np.float64).reshape(len(datasets), n_genes)
+        recovered = ~np.asarray(var[RECOVERED_FLAG], dtype=bool)
+        assert np.isnan(wide[:, recovered]).all(), "recovered genes must have no factor"
 
         ds_pos = {d: i for i, d in enumerate(datasets)}
         codes = np.array([ds_pos[str(d)] for d in back_obs["dataset"]])
@@ -1124,32 +1167,17 @@ def verify(outdir: Path, adata, obs: pd.DataFrame, var: pd.DataFrame,
             assert np.array_equal(varm.T[m], wide[m]), "h5ad varm factors"
             results["logcounts_scaled_reconstruction"]["h5ad_varm"] = "identical"
 
-    # ---- the genes the deposited object dropped -------------------------
-    if extra_matrix is not None:
-        src = to_csr(extra_matrix)
-        with gzip.open(outdir / EXTRA_MATRIX_NAME, "rb") as fh:
-            back = to_csr(mmread(fh))
-        assert back.shape == src.shape, EXTRA_MATRIX_NAME
-        assert np.array_equal(back.indices, src.indices), f"{EXTRA_MATRIX_NAME} columns"
-        assert np.array_equal(back.indptr, src.indptr), f"{EXTRA_MATRIX_NAME} rows"
-        assert np.array_equal(back.data.astype(np.float32), src.data), EXTRA_MATRIX_NAME
-        back_var = pd.read_csv(
-            outdir / EXTRA_VAR_NAME, index_col=0, dtype=_string_column_dtypes(extra_var)
-        )
-        assert list(map(str, back_var.index)) == list(map(str, extra_var.index))
-        for col in extra_var.columns:
-            # A gene with no name is an empty field in the CSV and comes back as
-            # NaN, which is how var.csv.gz already carries it.
-            w = np.array(["" if pd.isna(v) else str(v) for v in extra_var[col]], dtype=object)
-            g = np.array(["" if pd.isna(v) else str(v) for v in back_var[col]], dtype=object)
-            assert np.array_equal(w, g), f"{EXTRA_VAR_NAME}: {col}"
-        results["extra_genes"] = {
-            "shape": list(src.shape),
-            "stored_entries": int(src.nnz),
-            "source_dtype": str(src.data.dtype),
-            "max_abs_diff": 0.0,
-            "bit_identical": True,
-        }
+    # ---- the genes recovered into the matrix ----------------------------
+    results["recovered_genes"] = {
+        "columns": [int(n_shipped), int(len(var))],
+        "n_vars": int(len(var) - n_shipped),
+        "var_flag": RECOVERED_FLAG,
+        "flag_false_count": int((~var[RECOVERED_FLAG].astype(bool)).sum()),
+        "note": (
+            "checked above as part of logcounts.mtx.gz: the columns before "
+            "this range are bit-identical to the deposited layer"
+        ),
+    }
 
     # ---- verbatim extra files -------------------------------------------
     results["extra_files"] = {}
@@ -1160,6 +1188,56 @@ def verify(outdir: Path, adata, obs: pd.DataFrame, var: pd.DataFrame,
         results["extra_files"][dest_name] = "byte-identical to source"
 
     return results
+
+
+# --------------------------------------------------------------------------
+# Manifest
+# --------------------------------------------------------------------------
+
+
+#: Manifest sections written by another generator, kept across a re-run here.
+FOREIGN_SECTIONS = ("figure_3ef",)
+
+
+def describe_directory(outdir: Path, carried: dict[str, dict]) -> list[dict]:
+    """One manifest entry per file in *outdir*, the manifest itself excluded.
+
+    *carried* is the previous manifest's file list, keyed by name; it supplies
+    the description and any ``urls`` for files this run did not write.
+    """
+    entries = []
+    for path in sorted(outdir.iterdir()):
+        if not path.is_file() or path.name == MANIFEST_NAME:
+            continue
+        before = carried.get(path.name, {})
+        entries.append(
+            {
+                "filename": path.name,
+                "sha256": sha256_of(path),
+                "bytes": path.stat().st_size,
+                "description": DESCRIPTIONS.get(path.name, before.get("description", "")),
+                "urls": list(before.get("urls", [])),
+            }
+        )
+    return entries
+
+
+def refresh_manifest(outdir: Path, sections: dict | None = None) -> dict:
+    """Rewrite the file list in place, updating *sections* and keeping the rest.
+
+    Any generator that writes into the package calls this instead of editing
+    ``MANIFEST.json`` by hand, so the checksums and the section it owns are
+    always written by the same code.
+    """
+    manifest = json.loads((outdir / MANIFEST_NAME).read_text())
+    carried = {entry["filename"]: entry for entry in manifest.get("files", [])}
+    manifest.update(sections or {})
+    manifest["files"] = describe_directory(outdir, carried)
+    manifest["total_bytes"] = sum(entry["bytes"] for entry in manifest["files"])
+    with open(outdir / MANIFEST_NAME, "w") as fh:
+        json.dump(manifest, fh, indent=2, sort_keys=False)
+        fh.write("\n")
+    return manifest
 
 
 # --------------------------------------------------------------------------
@@ -1267,6 +1345,53 @@ def main(argv: list[str] | None = None) -> int:
         if k.endswith("_colors")
     }
 
+    # ---- the genes the analysis object dropped, folded back in ----------
+    print("recovering the genes the analysis object was subset away from")
+    extra_matrix, extra_var, extra_diag = build_extra_genes(
+        adata, args.nr_h5, args.me49_h5ad, args.gff
+    )
+    n_shipped = len(var)
+    # The GFF parse writes a missing name as an empty string and the analysis
+    # object writes it as NaN; CSV cannot tell the two apart, so settle on NaN
+    # for both halves. Back to categorical with object levels afterwards -- the
+    # dtype build_var hands over, and the only one anndata will write without
+    # the nullable-string opt-in.
+    var = legacy_strings(
+        pd.concat([var, extra_var])
+        .replace({column: {"": np.nan} for column in KEEP_VAR})
+        .astype({column: "category" for column in KEEP_VAR})
+    )
+    var[RECOVERED_FLAG] = np.r_[
+        np.ones(n_shipped, dtype=bool), np.zeros(len(extra_var), dtype=bool)
+    ]
+    print(
+        f"  {len(extra_var)} genes on {extra_diag['contigs']['n_contigs']} unplaced "
+        f"contigs, {extra_matrix.nnz:,} stored entries; deposited logcounts "
+        f"reproduced to "
+        f"{extra_diag['deposited_logcounts_max_abs_diff']['per source object']:.3g}"
+    )
+
+    # Only ``logcounts`` has values for them: the analysis object is where
+    # ``counts`` and ``logcounts_scaled`` come from, and it never saw these
+    # genes. Their columns are therefore empty in those layers -- no stored
+    # value, the same thing the factor table says with a NaN.
+    export_matrices: dict = {}
+    for name in export_layers:
+        source = to_csr(adata.layers[name])
+        block = (
+            extra_matrix
+            if name == "logcounts"
+            else sp.csr_matrix((adata.n_obs, len(extra_var)), dtype=source.dtype)
+        )
+        matrix = sp.hstack([source, block], format="csr")
+        matrix.sort_indices()
+        export_matrices[name] = matrix
+
+    for name in LEGACY_NAMES:
+        if (outdir / name).exists():
+            (outdir / name).unlink()
+            print(f"removing {name} (its genes are in logcounts.mtx.gz now)")
+
     written: list[Path] = []
     layer_stats: list[dict] = []
 
@@ -1274,7 +1399,7 @@ def main(argv: list[str] | None = None) -> int:
     for name, dtype in export_layers.items():
         path = outdir / f"{name}.mtx.gz"
         print(f"writing {path.name}")
-        stats = write_layer_mtx(path, adata.layers[name], dtype, name, args.gzip_level)
+        stats = write_layer_mtx(path, export_matrices[name], dtype, name, args.gzip_level)
         layer_stats.append(stats)
         written.append(path)
         print(
@@ -1318,8 +1443,34 @@ def main(argv: list[str] | None = None) -> int:
         adata.layers["logcounts_scaled"],
         dataset_codes,
         dataset_names,
-        np.asarray(var.index, dtype=object),
+        np.asarray(var.index[:n_shipped], dtype=object),
     )
+    if not factors.empty:
+        # The recovered genes have no factor to observe. Pad the table out to
+        # the full gene order so it lines up with var.csv.gz column for column.
+        factors = pd.concat(
+            [
+                block
+                for dataset in dataset_names
+                for block in (
+                    factors[factors["dataset"] == dataset],
+                    pd.DataFrame(
+                        {
+                            "dataset": str(dataset),
+                            "gene_id": np.asarray(extra_var.index, dtype=object),
+                            "factor": np.nan,
+                        }
+                    ),
+                )
+            ],
+            ignore_index=True,
+        )
+        factor_diag["genes_without_factor"] = int(len(extra_var))
+        factor_diag["genes_without_factor_note"] = (
+            "the 152 genes recovered into logcounts.mtx.gz are absent from the "
+            "analysis object's logcounts_scaled layer, so they have no factor "
+            "in either dataset and no value to rebuild"
+        )
     h5ad_varm: dict = {}
     h5ad_uns = dict(uns_colors)
     if not factors.empty:
@@ -1348,27 +1499,6 @@ def main(argv: list[str] | None = None) -> int:
             f"{factor_diag['reconstruction_bit_identical_float32']}"
         )
 
-    # ---- the genes the deposited object dropped -------------------------
-    print(f"writing {EXTRA_MATRIX_NAME} / {EXTRA_VAR_NAME}")
-    extra_matrix, extra_var, extra_diag = build_extra_genes(
-        adata, args.nr_h5, args.me49_h5ad, args.gff
-    )
-    extra_stats = write_layer_mtx(
-        outdir / EXTRA_MATRIX_NAME,
-        extra_matrix,
-        "float32",
-        "logcounts_extra",
-        args.gzip_level,
-    )
-    extra_var.to_csv(outdir / EXTRA_VAR_NAME, compression=gzip_csv_kwargs(args.gzip_level))
-    written += [outdir / EXTRA_MATRIX_NAME, outdir / EXTRA_VAR_NAME]
-    print(
-        f"  {extra_diag['n_vars']} genes on {len(extra_diag['contigs'])} unplaced "
-        f"contigs, {extra_stats['stored_entries']:,} stored entries, "
-        f"gz={extra_stats['mtx_gz_bytes'] / 1e6:.2f} MB; deposited logcounts "
-        f"reproduced to {extra_diag['deposited_logcounts_max_abs_diff']['per source object']:.3g}"
-    )
-
     # ---- extra verbatim files -------------------------------------------
     for dest_name, (rel_src, description) in EXTRA_FILES.items():
         src_path = args.extras_root / rel_src
@@ -1391,7 +1521,7 @@ def main(argv: list[str] | None = None) -> int:
             h5ad_path,
             obs,
             var,
-            {name: adata.layers[name] for name in export_layers},
+            export_matrices,
             {k: adata.obsm[k] for k in obsm_keys},
             h5ad_varm,
             h5ad_uns,
@@ -1432,23 +1562,21 @@ def main(argv: list[str] | None = None) -> int:
         print("verifying round trip")
         verification = verify(
             outdir, adata, obs, var, obsm_keys, uns_colors, export_layers,
-            args.extras_root, extra_matrix, extra_var, check_h5ad=not args.no_h5ad,
+            args.extras_root, export_matrices, n_shipped,
+            check_h5ad=not args.no_h5ad,
         )
         print("  all round-trip checks passed")
 
     # ---- manifest --------------------------------------------------------
-    files = []
-    for path in written:
-        files.append(
-            {
-                "filename": path.name,
-                "sha256": sha256_of(path),
-                "bytes": path.stat().st_size,
-                "description": DESCRIPTIONS.get(path.name, ""),
-                "urls": [],
-            }
-        )
-    files.sort(key=lambda d: d["filename"])
+    # The manifest covers everything in the package directory, not just what
+    # this run wrote: scripts/export_integration.py writes the Figure 3E/3F
+    # files beside these, and a partial re-run must not drop them. Their
+    # descriptions and their own manifest section are carried forward.
+    previous = {}
+    if (outdir / MANIFEST_NAME).exists():
+        previous = json.loads((outdir / MANIFEST_NAME).read_text())
+    carried = {entry["filename"]: entry for entry in previous.get("files", [])}
+    files = describe_directory(outdir, carried)
 
     manifest = {
         "name": "BradyzoiteHeterogeneity figure dataset",
@@ -1464,11 +1592,17 @@ def main(argv: list[str] | None = None) -> int:
             "pseudotime_csv_sha256": sha256_of(args.pseudotime),
         },
         "n_obs": int(adata.n_obs),
-        "n_vars": int(adata.n_vars),
+        "n_vars": int(len(var)),
+        "n_vars_analysis_object": int(adata.n_vars),
         "gzip_level": args.gzip_level,
         "matrix_orientation": "rows = cells (obs), columns = genes (var)",
         "layer_stats": layer_stats,
-        "extra_genes": {**extra_diag, **extra_stats},
+        "recovered_genes": {
+            **extra_diag,
+            "folded_into": "logcounts.mtx.gz",
+            "columns": [int(n_shipped), int(len(var))],
+            "var_flag": RECOVERED_FLAG,
+        },
         "optional_layers": optional_layers,
         "redundancy": {
             "logcounts_from_counts": {
@@ -1518,6 +1652,10 @@ def main(argv: list[str] | None = None) -> int:
         "files": files,
         "total_bytes": sum(f["bytes"] for f in files),
     }
+
+    for section in FOREIGN_SECTIONS:
+        if section in previous:
+            manifest[section] = previous[section]
 
     def write_manifest() -> None:
         with open(outdir / MANIFEST_NAME, "w") as fh:

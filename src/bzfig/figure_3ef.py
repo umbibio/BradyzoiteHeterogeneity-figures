@@ -9,7 +9,7 @@ The package ships the integration as four files: the 6,881 x 8,778 count matrix
 the model was trained on, its cell and gene tables, and the trained scVI
 checkpoint. ``data/figure_3ef_embedding.csv.gz`` holds the UMAP coordinates the
 panels are drawn from, so rendering needs neither torch nor scvi-tools;
-``scripts/integrate_s1_s2.py`` regenerates that file from the checkpoint.
+``scripts/export_integration.py`` regenerates that file from the checkpoint.
 """
 
 from __future__ import annotations

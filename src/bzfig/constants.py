@@ -11,6 +11,11 @@ from __future__ import annotations
 # (integrated_adata_me49_nr_subset-2026-06-29.ipynb, cell 132).
 CLUSTER_COLORS = ["#e0007a", "#4f7f6a", "#9c7c38", "#6f5e8d", "#00a6d6", "#7d5a5a"]
 
+# var column that is False for the 152 genes recovered into logcounts.mtx.gz
+# from the two source objects — the ones the analysis object was subset away
+# from, which only the Supplementary 5 volcanoes need.
+RECOVERED_FLAG = "in_analysis_object"
+
 # Cell cycle phases, in plotting order.
 PHASES = ["G1a", "G1b", "S", "M", "C"]
 

@@ -436,14 +436,14 @@ def _volcano(table: pd.DataFrame, panel: str):
 
 def supplementary_5c(adata, datadir=DATA):
     """In vivo against in vitro bradyzoites — 664 up / 1443 down in the paper."""
-    return _volcano(de.volcano_table(adata, "5C", datadir), "5C")
+    return _volcano(de.volcano_table(adata, "5C"), "5C")
 
 
 def supplementary_5e(adata, datadir=DATA):
     """In vitro bradyzoite G1 against in vitro tachyzoite G1 — no published counts."""
-    return _volcano(de.volcano_table(adata, "5E", datadir), "5E")
+    return _volcano(de.volcano_table(adata, "5E"), "5E")
 
 
 def supplementary_5f(adata, datadir=DATA):
     """In vivo against in vitro bradyzoite G1 — 676 up / 1146 down in the paper."""
-    return _volcano(de.volcano_table(adata, "5F", datadir), "5F")
+    return _volcano(de.volcano_table(adata, "5F"), "5F")

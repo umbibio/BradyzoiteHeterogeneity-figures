@@ -23,8 +23,8 @@ class RegistryTests(unittest.TestCase):
             command = [sys.executable, str(ROOT / "scripts/make_figures.py"), "--list", "--data", empty]
             run = subprocess.run(command, capture_output=True, text=True, check=True)
         listed = run.stdout.splitlines()
-        self.assertEqual(len(listed), 45)
-        self.assertEqual(len(set(listed)), 45)
+        self.assertEqual(len(listed), 47)
+        self.assertEqual(len(set(listed)), 47)
         for name in ("Figure_2H_correlation_heatmap", "Supplementary_4_CCC", "Supplementary_4_MCC"):
             self.assertIn(name, listed)
 
