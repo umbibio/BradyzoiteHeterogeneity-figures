@@ -29,8 +29,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import fetch_data  # noqa: E402
 
-from bzfig import panels  # noqa: E402
 from bzfig import figure_2h_supplementary_4 as heatmaps  # noqa: E402
+from bzfig import panels  # noqa: E402
 from bzfig.constants import COHORTS, SUPP1_GENES  # noqa: E402
 from bzfig.data import load_dataset, load_supp1a_markers  # noqa: E402
 
@@ -63,14 +63,24 @@ def save(figure, outdir: Path, name: str, formats) -> list[Path]:
     return written
 
 
-def build(adata, markers: pd.Index, datadir: Path, outdir: Path | None = None) -> dict[str, callable]:
+def build(
+    adata, markers: pd.Index, datadir: Path, outdir: Path | None = None
+) -> dict[str, callable]:
     """Panel name -> zero-argument callable returning a figure.
 
     The volcano panels need *datadir* as well: they widen the matrix back to the
     8322-gene universe with the extra genes shipped beside it.
+
+    Nothing here touches *adata*, so the registry can be built — and listed —
+    without a dataset. The Figure 2H and Supplementary 4 heatmaps additionally
+    defer their own (expensive) normalisation until a caller asks for them, and
+    write their companion CSV tables under ``outdir/tables`` when *outdir* is
+    given.
     """
     # Lazy: listing jobs never reads data, and selecting an existing panel does
     # not compute the Figure 2H / Supplementary 4 heatmaps (or vice versa).
+
+    # lru_cache so the CCC and MCC panels share one pass over the matrix.
     @lru_cache(maxsize=1)
     def supp4():
         tables = heatmaps.phase_matrices(adata)
@@ -91,9 +101,9 @@ def build(adata, markers: pd.Index, datadir: Path, outdir: Path | None = None) -
         "Figure_1D_unique_markers_per_cluster": lambda: panels.figure_1d(),
         "Figure_1F_cst1_srs44": lambda: panels.figure_1f(adata),
         "Figure_1G_cst1_violin": lambda: panels.figure_1g(adata),
+        "Figure_2H_correlation_heatmap": fig2h,
         "Figure_3D_in_vitro": lambda: panels.figure_3d(adata),
         "Supplementary_1A_all_markers_heatmap": lambda: panels.supplementary_1a(adata, markers),
-        "Figure_2H_correlation_heatmap": fig2h,
         "Supplementary_4_CCC": lambda: heatmaps.supplementary_4(supp4()["CCC"], "CCC"),
         "Supplementary_4_MCC": lambda: heatmaps.supplementary_4(supp4()["MCC"], "MCC"),
         "Supplementary_5A_umap": lambda: panels.supplementary_5a_umap(adata),
@@ -169,6 +179,8 @@ def main() -> int:
     )
     args = parser.parse_args()
 
+    # Listing is a registry question, not a data question, so it works in a
+    # clone that has not fetched the dataset yet.
     if args.list:
         for name in build(None, None, args.data):
             print(name)

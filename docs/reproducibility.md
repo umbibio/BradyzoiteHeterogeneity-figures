@@ -25,9 +25,9 @@ constants. Figure 2H and Supplementary 4 methods and validation are detailed in
 | Supplementary 5B | In vitro bradyzoites coloured by transferred cluster identity |
 | Supplementary 5D | srs22a expression |
 
-For Figure 1C, Figure 1G, Supplementary 1A and Supplementary 4 the exported
-values were additionally re-derived from the data object and re-plotted from the
-exported tables alone; both matched the published panels.
+For Figure 1C, Figure 1G and Supplementary 1A the exported values were
+additionally re-derived from the data object and re-plotted from the exported
+tables alone; both matched the published panels.
 
 Supplementary 1B and 1C are the same panel type as Figure 1E, drawn by the same
 function over the same 6505 in vivo cells. Every one of the eleven genes was
@@ -39,33 +39,108 @@ labels rest on the caption and on those filenames. Panel 1B also holds a
 BioRender cartoon of the two microneme subpopulations, which is figure assembly,
 not a panel.
 
-## Reproduced from the original R recipe
+## Reproduced from the original recipe — Figure 2H and Supplementary Figure 4
 
-**Figure 2H and Supplementary Figure 4** use the original R methods,
-implemented in `bzfig.figure_2h_supplementary_4` using the same deposited `logcounts`, cell
-metadata and gene identifiers. No Seurat object or additional expression
-dataset is required. Original row orders and gene labels are recorded in
-`figure_2h_supplementary_4_metadata.json`; measured values are calculated, not hard-coded.
+**Figure 2H** (5 × 29 Pearson correlation heatmap) and **Supplementary Figure 4**
+(CCC and MCC cell-cycle regulator heatmaps), drawn by
+`bzfig.figure_2h_supplementary_4`. This pair was contributed by **Kourosh
+Zarringhalam**; the method notes are in
+[figure-2h-supplementary-4.md](figure-2h-supplementary-4.md).
 
-The original Seurat normalization was applied after the 8,170-gene subset.
-It is recovered by `log1p(10000 * expm1(logcounts) / rowSum(expm1(logcounts)))`,
-with row sums over all 8,170 genes before selecting plotted genes. This
-conversion is local to these panels and does not modify any shared layer.
+These two panels are not a reconstruction fitted to the printed image. They
+reproduce the arithmetic of the original R code, from the deposited `logcounts`
+alone — no Seurat object, no R runtime, no extra expression download.
 
-Figure 2H calculates Pearson correlations across the 6,505 cells, the first
-five genes against all 29. All 145 displayed two-decimal values match the
-original. Supplementary 4 computes phase means then sample-SD z-scores of the
-five means, separately for CCC/MCC; its 500 z-scores match the audited R values
-within 1e-6. Floating-point equality is not claimed: source logcounts is float32.
+**The normalisation is the whole trick.** The original heatmap scripts ran
+Seurat `LogNormalize` *after* subsetting to the 8,170 deposited genes, whereas
+the deposited `logcounts` layer was normalised before that subset, over the
+wider pre-subset universe. Re-closing the deposited layer over the 8,170 genes
+recovers the original values:
 
-The independent publication row orders and original LAB-interpolated color
-breaks (-2.5/0/2.5) are retained. The CCC counts remain 11/230/106/56/44; MCC
-counts are 1517/2789/1219/271/262. The manual pale-pink description backgrounds
-are now copied explicitly from page 4 of the final supplementary PDF, with
-black text and unhighlighted gene IDs. The source has 19 highlighted CCC rows
-and 20 MCC rows: TGME49_315760 (AP2XI-4) is highlighted only in MCC. This source
-asymmetry is preserved, not silently corrected or inferred from expression.
-Numerical reproduction is distinct from exact page layout.
+```
+L_R = log1p(1e4 * expm1(L_shared) / rowSum(expm1(L_shared)))
+```
+
+The row sum runs over all 8,170 genes, before any plotted gene is selected. It
+is local to these two panels and copies the matrix, so no shared layer moves.
+The denominator matters and the 8,322-gene differential-expression universe is
+the wrong one for it — measured on the Figure 2H matrix against the original
+values:
+
+| Denominator | max abs. difference | displayed 2-dp values matched |
+| --- | --- | --- |
+| none (deposited `logcounts` as shipped) | 1.0e-03 | 143 / 145 |
+| the 8,322-gene DE universe | 1.0e-03 | 143 / 145 |
+| **the 8,170 deposited genes** | **1.9e-09** | **145 / 145** |
+
+The middle row is a no-op rather than a near miss. For these 6,505 in vivo cells
+`expm1(logcounts)` already sums to 10,000 over the 8,322 genes (9999.998 …
+10000.002 across the cohort), so re-closing over that set returns the deposited
+layer to within 1.6e-07 — float32 rounding. Over the 8,170 deposited genes the
+same totals run 7,625 … 10,000, and it is that missing mass, gene by gene and
+cell by cell, that the R scripts divided out after subsetting. This is the same
+finding as *Why the 8322-gene universe is the right one* below, arrived at from
+the other end.
+
+**What was measured here**, re-running the port against the original values in
+`tests/reference_heatmaps.json`:
+
+* Figure 2H — all **145 / 145** displayed correlations agree at two decimals;
+  largest full-precision difference **1.87e-09**.
+* Supplementary 4 — all **500 / 500** z-scores agree to within **5.60e-08**,
+  inside the suite's 1e-6 tolerance; phase means to within 1.07e-08.
+* Phase cell counts are exactly the panels': CCC 11 / 230 / 106 / 56 / 44,
+  MCC 1517 / 2789 / 1219 / 271 / 262, over the 6,505 in vivo cells.
+
+The residuals are float32 rounding in the deposited layer, not a difference of
+method. Bit-identical equality is not claimed and could not be.
+
+**What this settles.** The earlier version of these notes carried Supplementary 4
+as a reconstruction matched to the printed figure (mean per-gene r = 0.9998 CCC,
+0.9997 MCC). Two independent routes now agree on its inputs, which is worth more
+than either alone:
+
+* the 50-gene list transcribed from the printed figure
+  (`bzfig.constants.SUPP4_GENES`) is **set-identical** to the list carried in the
+  source data (`figure_2h_supplementary_4_metadata.json`);
+* the independent CCC and MCC row orders transcribed from the manuscript are
+  **exactly** the orders the old sort rule derived (peak phase, then peak
+  height) — 0 of 50 rows differ, in either panel.
+
+Row labels are now the manuscript's own — mostly short forms of the ToxoDB-65
+descriptions (`AP2 IX5` for "AP2 domain transcription factor AP2IX-5"), 22 of the
+50 differing in wording. One differs in substance and is still open:
+`TGME49_291590` is "MYND-like zinc finger protein" in the figure and
+"hypothetical protein" in the annotation shipped here.
+
+The pale-pink description backgrounds are transcribed from page 4 of the
+supplementary PDF rather than inferred from expression, which exposes something a
+rule could not have: the source highlights **19** rows in CCC and **20** in MCC —
+`TGME49_315760` (AP2XI-4) is highlighted in MCC only. Of the 20 highlighted genes,
+17 peak in the same phase in both panels and no unhighlighted gene does, so the
+caption's "highest within the same cell cycle state" accounts for the set apart
+from three genes (`TGME49_207900`, `TGME49_262730`, `TGME49_318470`) that peak one
+phase apart. The asymmetry is reproduced as found.
+
+Two things worth knowing when reading the published panel: its colour bar axis
+runs −4…4 but no value in either panel exceeds **±1.79** (the render here uses
+the original ±2.5 breaks), and the CCC group is thinly populated, so several
+genes are detected in one phase only and their rows sit at the one-hot extremes
+of ±1.789 / −0.447.
+
+**Companion tables.** Every run rewrites seven full-precision CSVs under
+`figures/tables/` — the Figure 2H correlation matrix, and per cycle the phase
+means, the z-scores and the phase cell counts. They are outputs, never inputs;
+`tests/reference_heatmaps.json` holds the original values and is read only by the
+test suite. Because the CSVs are written at `%.17g`, their last two or three
+digits track the local BLAS: regenerated here they differ from the committed
+copies by at most 4.4e-14 absolute (1.7e-13 relative), with row order and cell
+counts identical.
+
+The remaining gap is provenance, not arithmetic: the code that drew these panels
+is still not in the analysis repository, and the CCC cell selection was made
+interactively in a dashboard rather than in a script — it survives only as a
+`pseudotime_UCC` column, carried into this dataset as `obs["cell_cycle_group"]`.
 
 ## Figure 3 and Figure 6 — the cohort panels
 

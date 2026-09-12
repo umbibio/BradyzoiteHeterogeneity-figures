@@ -18,11 +18,15 @@ from bzfig.data import load_dataset
 
 class RegistryTests(unittest.TestCase):
     def test_list_without_data(self):
+        # --list is a registry question, so it must answer without a dataset.
         with tempfile.TemporaryDirectory() as empty:
             command = [sys.executable, str(ROOT / "scripts/make_figures.py"), "--list", "--data", empty]
             run = subprocess.run(command, capture_output=True, text=True, check=True)
-        self.assertEqual(len(run.stdout.splitlines()), 24)
-        self.assertIn("Figure_2H_correlation_heatmap", run.stdout)
+        listed = run.stdout.splitlines()
+        self.assertEqual(len(listed), 45)
+        self.assertEqual(len(set(listed)), 45)
+        for name in ("Figure_2H_correlation_heatmap", "Supplementary_4_CCC", "Supplementary_4_MCC"):
+            self.assertIn(name, listed)
 
 
 class OriginalHeatmapTests(unittest.TestCase):

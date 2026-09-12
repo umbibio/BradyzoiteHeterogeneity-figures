@@ -366,9 +366,9 @@ STATUS = {
         "Reproduced exactly",
         "checked against the published panel (docs/reproducibility.md)",
     ),
-    "reconstruction": (
-        "Reconstruction",
-        "the drawing code does not exist; the recipe was derived by matching the published panel",
+    "original": (
+        "Reproduced, original recipe",
+        "reproduces the original R calculation, not a recipe inferred from the printed panel",
     ),
     "numerical": (
         "Original-recipe numerical match",
@@ -713,6 +713,69 @@ def build_panels(facts: dict, verdicts: dict[str, str], figures: Path) -> list[d
         }
     )
 
+    panels.append(
+        {
+            "id": "fig-2h",
+            "overlay": " · ".join(
+                (
+                    f"{number(facts['in_vivo'])} in vivo cells",
+                    "logcounts, re-closed over the 8,170 deposited genes",
+                    "Pearson r",
+                )
+            ),
+            "group": "Figure 2",
+            "label": "Figure 2H",
+            "title": "Cyst wall protein co-expression",
+            "lede": (
+                "Five cyst wall proteins against the 29 displayed genes. All 145 correlations "
+                "match the published values at two decimals, the largest full-precision "
+                "difference being 1.9e-09. Contributed by Kourosh Zarringhalam."
+            ),
+            "status": "original",
+            "plates": [
+                {
+                    "file": "Figure_2H_correlation_heatmap",
+                    "caption": "Pearson correlation across the in vivo bradyzoites",
+                }
+            ],
+            "meta": [
+                ("Cells", in_vivo_cells),
+                (
+                    "Data layer",
+                    "<code>logcounts</code>, re-closed over the 8,170 deposited genes as "
+                    "<code>log1p(1e4 * expm1(L) / rowSum(expm1(L)))</code> — the "
+                    "panel-specific normalisation the original R heatmaps used, recovered",
+                ),
+                (
+                    "Values",
+                    "Pearson correlation between each of the five cyst wall proteins and each of "
+                    "the 29 displayed genes, in the original column order",
+                ),
+                (
+                    "Genes",
+                    "labels and column order from "
+                    "<code>figure_2h_supplementary_4_metadata.json</code>",
+                ),
+                ("Colour", "diverging red/blue, —1 to 1, centred on 0"),
+                (
+                    "Verified",
+                    "145/145 published correlations match at two decimals; largest "
+                    "full-precision difference 1.9e-09",
+                ),
+                (
+                    "Drawn by",
+                    "<code>bzfig.figure_2h_supplementary_4.figure_2h</code>",
+                ),
+                (
+                    "Tables",
+                    "the full-precision correlation matrix is in "
+                    "<code>figures/tables/Figure_2H_correlations.csv</code>; method in "
+                    "<code>docs/figure-2h-supplementary-4.md</code>",
+                ),
+            ],
+        }
+    )
+
     panels.extend(cohort_panels(facts, verdicts, figures))
 
     panels.append(
@@ -827,17 +890,18 @@ def build_panels(facts: dict, verdicts: dict[str, str], figures: Path) -> list[d
                 (
                     f"CCC {number(facts['cc_counts']['CCC'])} / "
                     f"MCC {number(facts['cc_counts']['MCC'])} cells",
-                    "original R normalization recovered from shared logcounts",
+                    "logcounts, re-closed over the 8,170 deposited genes",
                     "per-gene z-score across the five phases",
-                    f"original LAB palette {MINUS}2.5 to 2.5",
+                    "LAB colour scale",
                 )
             ),
             "group": "Supplementary 4",
             "label": "Supplementary 4",
             "title": "Cell-cycle regulators, common and modified cell cycle",
             "lede": (
-                "Original R normalization, gene labels and separate final row orders, "
-                "implemented from the same shared dataset. No extra expression matrix is required."
+                "Reproduces the original R calculation — all 500 z-scores agree to within "
+                "5.6e-08 — with the original gene labels, row orders, colour scale and row "
+                "highlights. Contributed by Kourosh Zarringhalam."
             ),
             "status": "numerical",
             "plates": [
@@ -857,23 +921,46 @@ def build_panels(facts: dict, verdicts: dict[str, str], figures: Path) -> list[d
                 ("Group definition", f"<code>{esc(facts['cc_definition'])}</code>"),
                 (
                     "Data layer",
-                    "<code>logcounts</code> converted to the original Seurat normalization over "
-                    "the 8,170 deposited genes; other panels' layers are unchanged",
+                    "<code>logcounts</code>, re-closed over the 8,170 deposited genes as "
+                    "<code>log1p(1e4 * expm1(L) / rowSum(expm1(L)))</code> — the "
+                    "panel-specific normalisation the original R heatmaps used, recovered",
                 ),
                 (
                     "Values",
-                    "mean expression per <code>obs.transferred_cc_phase</code>, z-scored per gene "
-                    "across the five phases using sample SD; original independent CCC/MCC row orders",
+                    "mean expression per phase, z-scored per gene across the five phases with the "
+                    "sample SD (ddof=1), independently within CCC and MCC",
                 ),
-                ("Genes", f"{len(K.SUPP4_GENES)} regulators, <code>constants.SUPP4_GENES</code>"),
-                ("Colour", "Original circlize LAB palette, breaks −2.5 / 0 / 2.5; no clustering"),
+                (
+                    "Genes",
+                    f"{len(K.SUPP4_GENES)} regulators — original labels and the two row orders "
+                    "in <code>figure_2h_supplementary_4_metadata.json</code>; "
+                    "<code>constants.SUPP4_GENES</code> is kept as an independent transcription "
+                    "from the printed figure, and the two sets agree exactly",
+                ),
+                ("Colour", "LAB-interpolated scale from the original figure, breaks at ±2.5"),
+                (
+                    "Row highlights",
+                    "the pale-pink description backgrounds are manual annotations transcribed "
+                    "from the printed figure — 19 rows in CCC, 20 in MCC — not a rule "
+                    "derived from the data",
+                ),
+                (
+                    "Verified",
+                    "500/500 z-scores against the original R values, largest difference 5.6e-08",
+                ),
                 (
                     "Worth knowing",
                     "Pale-pink description backgrounds are copied from the final supplementary PDF: "
                     "19 CCC and 20 MCC labels. The source highlights AP2XI-4 only in MCC; that "
                     "asymmetry is retained. Numerical agreement does not imply pixel-identical assembly.",
                 ),
-                ("Drawn by", "<code>bzfig.figure_2h_supplementary_4.supplementary_4</code>; computed values in <code>figures/tables/</code>"),
+                ("Drawn by", "<code>bzfig.figure_2h_supplementary_4.supplementary_4</code>"),
+                (
+                    "Tables",
+                    "phase means, z-scores and cell counts as full-precision CSV in "
+                    "<code>figures/tables/</code>; method in "
+                    "<code>docs/figure-2h-supplementary-4.md</code>",
+                ),
             ],
         }
     )
@@ -2346,8 +2433,8 @@ def main() -> int:
         panel["meta"] = [(term, Markup(value)) for term, value in panel["meta"]]
 
     panels[[p["id"] for p in panels].index("supp-4")].update(
-        extra_summary="Original R recipe and numerical QC",
-        extra=Markup(md_to_html(doc_section(repro, "Reproduced from the original R recipe"))),
+        extra_summary="The original recipe, and how it was verified",
+        extra=Markup(md_to_html(doc_section(repro, "Reproduced from the original recipe"))),
     )
 
     nav_groups: list[dict] = []
@@ -2371,7 +2458,7 @@ def main() -> int:
     # so a section added to the docs turns up here rather than being dropped.
     quoted = (
         "Reproduced exactly",
-        "Reproduced from the original R recipe",
+        "Reproduced from the original recipe",
         "Figure 3 and Figure 6",
         "Reproduced from a wider gene set",
         "Not reproducible",

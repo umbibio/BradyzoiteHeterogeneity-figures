@@ -30,7 +30,6 @@ from .constants import (
     HEATMAP_VMAX,
     PHASES,
     SUPP1_GENES,
-    SUPP4_GENES,
     SUPP5D_GENE,
     SUPP5E_CYST_WALL_GENES,
     UNIQUE_MARKERS_PER_CLUSTER,
@@ -43,7 +42,6 @@ from .scatter3d import AZIMUTH, ELEVATION, plot_3d_preview
 
 UMAP_KEY = "3d_umap_harmony_integration"
 EXPRESSION_LAYER = "logcounts_scaled"
-CELLCYCLE_LAYER = "logcounts"
 
 
 # --------------------------------------------------------------------- subsets
@@ -289,52 +287,11 @@ def supplementary_1bc(adata):
 
 
 # -------------------------------------------------------------------- Supp 4
-
-
-def supplementary_4_matrices(adata) -> dict[str, dict[str, pd.DataFrame]]:
-    """Per-phase mean expression and per-gene z-score, for the CCC and MCC panels."""
-    panels = {}
-    for group in ("CCC", "MCC"):
-        subset = adata[adata.obs["cell_cycle_group"] == group, SUPP4_GENES]
-        values = subset.layers[CELLCYCLE_LAYER]
-        frame = pd.DataFrame(
-            np.asarray(values.todense()) if hasattr(values, "todense") else np.asarray(values),
-            columns=SUPP4_GENES,
-            index=subset.obs_names,
-        )
-        frame["phase"] = subset.obs["transferred_cc_phase"].astype(str).values
-        mean = frame.groupby("phase").mean().reindex(PHASES).T
-        z = mean.sub(mean.mean(axis=1), axis=0).div(mean.std(axis=1, ddof=1), axis=0)
-        order = (
-            pd.DataFrame({"phase": z.idxmax(axis=1).map(PHASES.index), "peak": z.max(axis=1)})
-            .sort_values(["phase", "peak"], ascending=[True, False])
-            .index
-        )
-        panels[group] = {
-            "mean": mean.loc[order],
-            "z": z.loc[order],
-            "n_cells": subset.obs["transferred_cc_phase"].value_counts().reindex(PHASES),
-        }
-    return panels
-
-
-def supplementary_4(adata, panel: dict, title: str):
-    """One of the two cell-cycle heatmaps."""
-    z = panel["z"]
-    labels = [f"{g} {adata.var.loc[g, 'gene_description']}" for g in z.index]
-    figure, ax = plt.subplots(figsize=(7, 12))
-    sns.heatmap(
-        z, cmap="RdBu_r", center=0, vmin=-2, vmax=2, ax=ax,
-        cbar_kws={"label": "Normalized expression (z-score)", "shrink": 0.4},
-    )
-    ax.set_yticklabels(labels, fontsize=6, rotation=0)
-    ax.set_xlabel("Phase")
-    ax.set_ylabel(None)
-    ax.set_title(title)
-    ax.xaxis.tick_top()
-    ax.xaxis.set_label_position("top")
-    plt.subplots_adjust(left=0.55, right=0.88, top=0.94, bottom=0.04)
-    return figure
+#
+# Supplementary 4 moved to :mod:`bzfig.figure_2h_supplementary_4`, which
+# reproduces the original R recipe — the panel-specific LogNormalize, the
+# manuscript row order and the printed gene labels — in place of the
+# reconstruction that used to live here.
 
 
 # -------------------------------------------------------------------- Supp 5

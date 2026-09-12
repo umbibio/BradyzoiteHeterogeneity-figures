@@ -215,9 +215,14 @@ MANIFEST_NAME = "MANIFEST.json"
 # Public mirrors, highest priority first. Kept here rather than only in the
 # manifest so regenerating the package does not silently drop them.
 MIRRORS = [
-    # Snapshot of the current package; checksum verification rejects stale files
-    # if a future export changes them. Update the pin on the next data release.
+    # A snapshot of the current package, pinned to the commit that holds it.
+    # ``media.`` serves the git-lfs objects, ``raw.`` the three small files kept
+    # out of lfs; whichever is asked for the wrong kind 404s or returns a
+    # pointer, and fetch_data.py rejects both on the checksum and moves on.
+    # Pinned so the bytes can never drift from the checksums below — which also
+    # means the pin has to be moved on the next data release.
     "https://media.githubusercontent.com/media/umbibio/BradyzoiteHeterogeneity-figures/1c25d514bb4adf00b15f5b467ec68571aefd33c3/data/",
+    "https://raw.githubusercontent.com/umbibio/BradyzoiteHeterogeneity-figures/1c25d514bb4adf00b15f5b467ec68571aefd33c3/data/",
     "https://watson.math.umb.edu/data/BradyzoiteHeterogeneity-figures/data/",
     "https://poisson.math.umb.edu/data/BradyzoiteHeterogeneity-figures/data/",
 ]
@@ -234,8 +239,9 @@ FACTORS_VARM_KEY = "logcounts_scaled_factors"
 EXTRA_MATRIX_NAME = "logcounts_extra.mtx.gz"
 EXTRA_VAR_NAME = "var_extra.csv.gz"
 
-# Source inputs may be overridden with the existing CLI flags. The default is
-# a sibling methods checkout, independent of any author's workstation path.
+# A sibling checkout of the methods repository, so the defaults do not depend
+# on where any one author keeps their workspace. Every input below can be
+# pointed somewhere else with the matching command line flag.
 DEFAULT_METHODS_REPO = Path(__file__).resolve().parents[2] / "BradyzoiteHeterogeneity-methods"
 DEFAULT_H5AD = (
     DEFAULT_METHODS_REPO

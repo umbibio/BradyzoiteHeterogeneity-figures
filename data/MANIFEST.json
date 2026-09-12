@@ -434,6 +434,7 @@
   },
   "mirrors": [
     "https://media.githubusercontent.com/media/umbibio/BradyzoiteHeterogeneity-figures/1c25d514bb4adf00b15f5b467ec68571aefd33c3/data/",
+    "https://raw.githubusercontent.com/umbibio/BradyzoiteHeterogeneity-figures/1c25d514bb4adf00b15f5b467ec68571aefd33c3/data/",
     "https://watson.math.umb.edu/data/BradyzoiteHeterogeneity-figures/data/",
     "https://poisson.math.umb.edu/data/BradyzoiteHeterogeneity-figures/data/"
   ],

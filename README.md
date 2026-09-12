@@ -16,7 +16,16 @@ downloads them from the public mirrors before rendering. Run
 `python scripts/fetch_data.py` to do that step on its own.
 
 Rendered panels land in `figures/`. `python scripts/make_figures.py --list` shows
-the panel names; `--panel 1C 1G` renders a subset.
+the panel names — it needs no data, so it answers in a fresh clone — and
+`--panel 1C 1G` renders a subset.
+
+Figure 2H and Supplementary 4 also write full-precision companion tables to
+`figures/tables/`, and carry a test suite:
+
+```bash
+python scripts/make_figures.py --panel Figure_2H Supplementary_4
+python -m unittest discover -s tests -v
+```
 
 If using pip instead of uv, activate that environment and use `python` directly.
 To render only Figure 2H and Supplementary Figure 4:
@@ -73,7 +82,9 @@ part of this dataset.
 `scripts/fetch_data.py` reads `data/MANIFEST.json`, tries each file's mirrors in
 turn and verifies the SHA-256 of whatever it gets, falling through to the next
 mirror on a mismatch. `MANIFEST.json` is deliberately kept out of LFS so it can
-always be read, whatever state the rest of `data/` is in.
+always be read, whatever state the rest of `data/` is in. Four mirrors are
+listed: the public GitHub copy of this repository, pinned to the commit holding
+the current data, and then the two institutional servers.
 
 A file is re-fetched if it is missing, the wrong size, fails its checksum, or is
 a git-lfs pointer stub — so a clone made without git-lfs repairs itself. Extra
@@ -114,6 +125,7 @@ the full analysis object.
 data/           deposited input (LFS) + MANIFEST.json
 scripts/        fetch_data.py, make_figures.py, export_dataset.py
 src/bzfig/      panel implementations, figure metadata and shared data loaders
+tests/          unit tests for the Figure 2H / Supplementary 4 heatmaps
 figures/        rendered output
 docs/           methods, reproducibility and coverage
 preview/        self-contained HTML preview of every panel
@@ -122,4 +134,8 @@ preview/        self-contained HTML preview of every panel
 `src/bzfig/constants.py` and `src/bzfig/figure_2h_supplementary_4_metadata.json` hold values that are not
 derivable from the data — palettes, colour limits, gene lists, and the counts
 that were hard-coded when the figures were made. Each is annotated with where it
-came from.
+came from. `src/bzfig/figure_2h_supplementary_4_metadata.json` does the same for
+the two heatmaps it is named for: their published gene order, row labels, colour
+lookup and the manually highlighted rows, each with its source recorded.
+
+Figure 2H and Supplementary 4 were contributed by Kourosh Zarringhalam.
