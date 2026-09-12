@@ -1,8 +1,8 @@
 # Bradyzoite heterogeneity — figure reproduction
 
-Data and code for reproducing the computational panels listed below from the
-processed single-cell dataset. Panel-specific methods, numerical validation,
-coverage and limitations are documented in `docs/reproducibility.md`.
+Everything needed to regenerate the figure panels derived from the single-cell
+RNA-seq data: the deposited dataset, the code that draws each panel, and notes on
+how each panel relates to the published figure.
 
 ```bash
 uv sync --extra preview               # or: pip install -e '.[preview]'
@@ -41,8 +41,8 @@ or additional expression download is needed. See
 [`docs/figure-2h-supplementary-4.md`](docs/figure-2h-supplementary-4.md).
 
 `preview/index.html` is a single self-contained page showing every rendered panel
-with its metadata and its reproducibility status — no network access, so it can be
-opened from disk or served as a static file. It needs the `preview` extra
+with its caption and source — no network access, so it can be opened from disk or
+served as a static file. It needs the `preview` extra
 (`pip install -e '.[preview]'`); `--max-edge` controls the size of the embedded
 images.
 
@@ -50,8 +50,8 @@ images.
 
 | | |
 | --- | --- |
-| [`docs/reproducibility.md`](docs/reproducibility.md) | What reproduces exactly, what is a reconstruction, what is a recorded constant — and why |
-| [`docs/figure-2h-supplementary-4.md`](docs/figure-2h-supplementary-4.md) | Figure 2H and Supplementary 4 methods, outputs and validation |
+| [`docs/reproducibility.md`](docs/reproducibility.md) | How each panel is drawn, and where it departs from the published figure |
+| [`docs/figure-2h-supplementary-4.md`](docs/figure-2h-supplementary-4.md) | Figure 2H and Supplementary 4: method, outputs and validation |
 | [`data/MANIFEST.json`](data/MANIFEST.json) | Every input file with its SHA-256 and download mirrors |
 
 ## Panels
@@ -127,7 +127,7 @@ scripts/        fetch_data.py, make_figures.py, export_dataset.py
 src/bzfig/      panel implementations, figure metadata and shared data loaders
 tests/          unit tests for the Figure 2H / Supplementary 4 heatmaps
 figures/        rendered output
-docs/           methods, reproducibility and coverage
+docs/           reproducibility notes
 preview/        self-contained HTML preview of every panel
 ```
 

@@ -5,9 +5,7 @@ repository's standard figure workflow. They use the same deposited `logcounts`,
 cell metadata and gene identifiers as every other panel; no additional expression
 data, Seurat object or R installation is required.
 
-Contributed by **Kourosh Zarringhalam**. They replace the earlier Supplementary 4
-reconstruction, which was fitted to the printed figure rather than derived from
-the original calculation.
+Contributed by **Kourosh Zarringhalam**.
 
 ## Run
 
@@ -17,8 +15,8 @@ python scripts/make_figures.py --panel Figure_2H Supplementary_4
 python -m unittest discover -s tests -v
 ```
 
-Under `uv`, prefix the two Python commands with `uv run`. Rendering these three
-panels does not require rerunning the other forty-two.
+Under `uv`, prefix the two Python commands with `uv run`. The three panels render
+on their own; the rest of the figure set does not have to be rebuilt.
 
 ## Inputs and methods
 
@@ -86,12 +84,12 @@ identity, colour and row placement of the manual highlights.
 Two cross-checks independent of the reference file: the 50-gene list here is
 set-identical to the one transcribed from the printed figure in
 `bzfig.constants.SUPP4_GENES`, and the manuscript row orders recorded here are
-exactly those the earlier reconstruction derived by sorting on peak phase then
-peak height — 0 of 50 rows differ, in either panel.
+exactly those obtained by sorting each panel on peak phase, then peak height — 0 of
+50 rows differ, in either panel.
 
 Validated in this tree with Python 3.12, NumPy 2.1.3, SciPy 1.17.1, pandas 3.0.1,
 anndata 0.12.6, Scanpy 1.12 and Matplotlib 3.10.8. Numerical reproduction does
 not imply pixel-identical manual figure assembly, nor byte-identical graphics
 across library versions; the `%.17g` CSVs in particular track the local BLAS in
-their last two or three digits. Broader panel coverage and reconstruction limits
-are in [reproducibility.md](reproducibility.md).
+their last two or three digits. Panel coverage across the rest of the figure set
+is in [reproducibility.md](reproducibility.md).

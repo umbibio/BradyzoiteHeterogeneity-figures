@@ -125,8 +125,8 @@ def build(
             lambda g=gene_id, lbl=label: panels._gene_umap(panels.in_vivo(adata), g, lbl)
         )
     # Figure 6 redraws Figure 3A-C without the grey layer. Its panels are named
-    # for the cohort they hold, not for the column header printed above them:
-    # the two disagree, which is item 8 of docs/todo-for-authors.md.
+    # for the cohort they hold, not for the column header printed above them,
+    # which the published figure does not match to the cells beneath it.
     for letter, name, orig_ident, background in COHORTS:
         jobs[f"Figure_{letter}_umap"] = (
             lambda o=orig_ident, bg=background: panels.figure_3_umap(adata, o, bg)

@@ -4,10 +4,9 @@
     python scripts/make_preview.py                  # -> preview/index.html
     python scripts/make_preview.py --max-edge 1400  # smaller embedded images
 
-The page is a public figure browser: every rendered panel, its metadata and
-its reproducibility status, in one file that makes **no network request of any
-kind**. Images are embedded as ``data:`` URIs, the stylesheet and script are
-inline, and nothing is fetched at load time.
+Every rendered panel with the metadata it was drawn from, in one file that makes
+**no network request of any kind**. Images are embedded as ``data:`` URIs, the
+stylesheet and script are inline, and nothing is fetched at load time.
 
 Everything the page states is read from the repository rather than retyped:
 
@@ -15,8 +14,7 @@ Everything the page states is read from the repository rather than retyped:
 * colour limits, palettes,
   gene lists, constants    ``src/bzfig/constants.py``
 * cell counts             ``data/obs.csv.gz`` and ``data/MANIFEST.json``
-* per-panel verdicts and
-  the limitations section  ``docs/reproducibility.md``
+* panel descriptions      ``docs/reproducibility.md``
 
 Requires ``pillow`` and ``jinja2`` (``pip install -e '.[preview]'``) in addition
 to the rendering dependencies.
@@ -67,21 +65,8 @@ def number(value: int) -> str:
 
 # ------------------------------------------------------------------- markdown
 #
-# Enough of markdown to render the prose sections of docs/reproducibility.md.
-# Links are flattened to their text: the page must not offer anything to fetch.
-
-
-def _inline(text: str) -> str:
-    text = esc(text)
-    text = re.sub(r"\[([^\]]+)\]\([^)]+\)", r"\1", text)
-    text = re.sub(r"`([^`]+)`", r"<code>\1</code>", text)
-    text = re.sub(r"\*\*([^*]+)\*\*", r"<strong>\1</strong>", text)
-    text = re.sub(r"(?<!\*)\*([^*\n]+)\*(?!\*)", r"<em>\1</em>", text)
-    return text
-
-
-_BULLET = re.compile(r"^\s*[*-] ")
-_ORDERED = re.compile(r"^\s*\d+\. ")
+# Just enough to read the panel table and the section headings out of
+# docs/reproducibility.md.
 
 
 def _split_row(line: str) -> list[str]:
@@ -125,78 +110,6 @@ def find_table(markdown: str, *columns: str) -> list[dict[str, str]]:
         if table and all(column in table[0] for column in columns):
             return table
     return []
-
-
-def md_to_html(markdown: str) -> str:
-    lines = markdown.strip("\n").splitlines()
-    out: list[str] = []
-    index = 0
-    while index < len(lines):
-        line = lines[index]
-        if not line.strip():
-            index += 1
-            continue
-        if line.lstrip().startswith("```"):
-            index += 1
-            fenced: list[str] = []
-            while index < len(lines) and not lines[index].lstrip().startswith("```"):
-                fenced.append(lines[index])
-                index += 1
-            index += 1
-            out.append("<pre><code>" + esc("\n".join(fenced)) + "</code></pre>")
-        elif line.startswith("#"):
-            depth = len(line) - len(line.lstrip("#"))
-            level = min(depth + 1, 5)
-            out.append(f"<h{level}>{_inline(line.lstrip('#').strip())}</h{level}>")
-            index += 1
-        elif _BULLET.match(line) or _ORDERED.match(line):
-            ordered = bool(_ORDERED.match(line))
-            starts = _ORDERED if ordered else _BULLET
-            items: list[str] = []
-            while index < len(lines) and starts.match(lines[index]):
-                item = lines[index][starts.match(lines[index]).end() :].strip()
-                index += 1
-                while (
-                    index < len(lines)
-                    and lines[index].startswith("  ")
-                    and lines[index].strip()
-                    and not _BULLET.match(lines[index])
-                    and not _ORDERED.match(lines[index])
-                ):
-                    item += " " + lines[index].strip()
-                    index += 1
-                items.append(f"<li>{_inline(item)}</li>")
-            tag = "ol" if ordered else "ul"
-            out.append(f"<{tag}>" + "".join(items) + f"</{tag}>")
-        elif line.lstrip().startswith("|"):
-            block: list[str] = []
-            while index < len(lines) and lines[index].lstrip().startswith("|"):
-                block.append(lines[index])
-                index += 1
-            rows = _table_rows(block)
-            head = "".join(f"<th>{_inline(cell)}</th>" for cell in rows[0])
-            body = "".join(
-                "<tr>" + "".join(f"<td>{_inline(cell)}</td>" for cell in row) + "</tr>"
-                for row in rows[1:]
-            )
-            out.append(
-                f'<div class="scroll-x"><table><thead><tr>{head}</tr></thead>'
-                f"<tbody>{body}</tbody></table></div>"
-            )
-        else:
-            paragraph: list[str] = []
-            while (
-                index < len(lines)
-                and lines[index].strip()
-                and not lines[index].startswith("#")
-                and not lines[index].lstrip().startswith("|")
-                and not _BULLET.match(lines[index])
-                and not _ORDERED.match(lines[index])
-            ):
-                paragraph.append(lines[index].strip())
-                index += 1
-            out.append(f"<p>{_inline(' '.join(paragraph))}</p>")
-    return "\n".join(out)
 
 
 def split_sections(markdown: str) -> list[tuple[str, str]]:
@@ -263,7 +176,7 @@ def colour_strip(cmap_name: str, reverse: bool = False) -> str:
 
     ramp = np.linspace(1, 0, 256) if reverse else np.linspace(0, 1, 256)
     rgba = colormaps[cmap_name](ramp, bytes=True)
-    image = Image.fromarray(rgba[np.newaxis, :, :3])
+    image = Image.fromarray(rgba[np.newaxis, :, :3], "RGB")
     buffer = io.BytesIO()
     image.save(buffer, format="PNG", optimize=True)
     return "data:image/png;base64," + base64.b64encode(buffer.getvalue()).decode("ascii")
@@ -361,35 +274,6 @@ def cluster_counts(counter: Counter) -> str:
 
 # ------------------------------------------------------------------- content
 
-STATUS = {
-    "exact": (
-        "Reproduced exactly",
-        "checked against the published panel (docs/reproducibility.md)",
-    ),
-    "original": (
-        "Reproduced, original recipe",
-        "reproduces the original R calculation, not a recipe inferred from the printed panel",
-    ),
-    "numerical": (
-        "Original-recipe numerical match",
-        "matches the original R values within 1e-6; Supplementary 4 label highlights copied from the source",
-    ),
-    "labels": (
-        "Reproduced, phase labels differ",
-        "the cells and their positions are the published panel's; the cell-cycle phase vector "
-        "that coloured it is in neither repository, so the colours come from the deposited "
-        "labels instead — see “The cohort panels”",
-    ),
-    "wider": (
-        "Reconstructed analysis",
-        "wider-gene-set reconstruction; small differences from manuscript counts are documented below",
-    ),
-    "constant": (
-        "Recorded constant",
-        "not derivable from the deposited object; the published values are drawn from constants.py",
-    ),
-}
-
 IN_VIVO_SUBSET = "obs.orig_ident == 'Nonreactivated'"
 IN_VITRO_SUBSET = "obs.orig_ident == 'me49 Day 3'"
 UMAP_ROW = (
@@ -450,6 +334,7 @@ def build_panels(facts: dict, verdicts: dict[str, str], figures: Path) -> list[d
     heatmap_scale = scale_bar(
         colour_strip("viridis"), "0", f"{K.HEATMAP_VMAX:g}", "viridis (scanpy default)"
     )
+    supp4_scale = scale_bar(colour_strip("RdBu_r"), f"{MINUS}2", "2", "RdBu_r")
     palette = swatches(K.CLUSTER_COLORS)
 
     in_vivo_cells = (
@@ -491,7 +376,6 @@ def build_panels(facts: dict, verdicts: dict[str, str], figures: Path) -> list[d
             "label": "Figure 1B",
             "title": "Cluster UMAP and cells per cluster",
             "lede": verdicts.get("Figure 1B", ""),
-            "status": "exact",
             "plates": [
                 {"file": "Figure_1B_umap", "caption": "Cluster UMAP of the in vivo bradyzoites"},
                 {"file": "Figure_1B_cells_per_cluster", "caption": "Cells per cluster"},
@@ -506,11 +390,6 @@ def build_panels(facts: dict, verdicts: dict[str, str], figures: Path) -> list[d
                     "<code>bzfig.panels.figure_1b_umap</code>, "
                     "<code>bzfig.panels.figure_1b_counts</code>",
                 ),
-                (
-                    "Assembly",
-                    "the in-plot cluster numbers on the published panel were added in a vector "
-                    "editor and are not reproduced here",
-                ),
             ],
         }
     )
@@ -523,7 +402,6 @@ def build_panels(facts: dict, verdicts: dict[str, str], figures: Path) -> list[d
             "label": "Figure 1C",
             "title": "Selected marker genes per cluster",
             "lede": verdicts.get("Figure 1C", ""),
-            "status": "exact",
             "plates": [{"file": "Figure_1C_marker_heatmap", "caption": "Marker gene heatmap"}],
             "meta": [
                 ("Cells", f"{in_vivo_cells}, grouped by <code>obs.nr_cluster</code>"),
@@ -545,11 +423,6 @@ def build_panels(facts: dict, verdicts: dict[str, str], figures: Path) -> list[d
                     "(<code>constants.HEATMAP_VMAX</code>)",
                 ),
                 ("Drawn by", "<code>bzfig.panels.figure_1c</code>"),
-                (
-                    "Assembly",
-                    "the coloured row-group bands beside the published panel were added in a "
-                    "vector editor; the band sizes were read off the printed figure",
-                ),
             ],
         }
     )
@@ -559,7 +432,7 @@ def build_panels(facts: dict, verdicts: dict[str, str], figures: Path) -> list[d
             "id": "fig-1d",
             "overlay": dot.join(
                 (
-                "recorded counts; final workbook lists agree",
+                    "recorded constants, not data",
                     ", ".join(
                         str(value)
                         for _, value in sorted(K.UNIQUE_MARKERS_PER_CLUSTER.items())
@@ -571,10 +444,9 @@ def build_panels(facts: dict, verdicts: dict[str, str], figures: Path) -> list[d
             "label": "Figure 1D",
             "title": "Unique markers per cluster",
             "lede": (
-                "Drawn from the six recorded counts, independently supported by the final "
-                "manuscript workbook lists. The historical marker-selection calculation remains unverified."
+                "Drawn from the six values hard-coded in the analysis notebook, which no "
+                "re-run of the marker test recovers."
             ),
-            "status": "constant",
             "plates": [
                 {
                     "file": "Figure_1D_unique_markers_per_cluster",
@@ -591,13 +463,12 @@ def build_panels(facts: dict, verdicts: dict[str, str], figures: Path) -> list[d
                     ),
                 ),
                 (
-                    "Re-running the obvious test",
-                    f"gives <code>[37, 94, 84, 861, 18, 52]</code> on the deposited "
-                    f"{number(facts['n_vars'])} genes and "
+                    "Re-derived",
+                    "the marker test gives <code>[37, 94, 84, 861, 18, 52]</code> on the "
+                    f"deposited {number(facts['n_vars'])} genes and "
                     "<code>[45, 93, 84, 863, 18, 53]</code> on the full "
-                    f"{number(facts['universe']['toxodb_65_genes'])}-gene universe now that it is "
-                    "shipped — neither matches the manuscript counts; the historical "
-                    "marker-selection calculation is not reproduced",
+                    f"{number(facts['universe']['toxodb_65_genes'])}-gene universe; neither is "
+                    "the published set",
                 ),
                 ("Colour", f"{palette} cluster palette, <code>constants.CLUSTER_COLORS</code>"),
                 ("Drawn by", "<code>bzfig.panels.figure_1d</code>"),
@@ -624,7 +495,6 @@ def build_panels(facts: dict, verdicts: dict[str, str], figures: Path) -> list[d
             "label": "Figure 1E",
             "title": "Per-gene expression UMAPs",
             "lede": verdicts.get("Figure 1E", ""),
-            "status": "exact",
             "variants": variants,
             "switch_hint": "Six panels, one per gene. Switch between them in place:",
             "meta": [
@@ -646,16 +516,6 @@ def build_panels(facts: dict, verdicts: dict[str, str], figures: Path) -> list[d
                     "the same scale for every gene panel",
                 ),
                 ("Drawn by", "<code>bzfig.panels.figure_1e</code>"),
-                (
-                    "Gene labels",
-                    "TGME49_268850 is enolase 2; TGME49_268860 is enolase 1, "
-                    "consistent with the deposited gene annotation and manuscript",
-                ),
-                (
-                    "Assembly",
-                    "the published figure lays the six out as a grid with row labels and a single "
-                    "shared colour bar across 1E and 1F, added in a vector editor",
-                ),
             ],
         }
     )
@@ -669,7 +529,6 @@ def build_panels(facts: dict, verdicts: dict[str, str], figures: Path) -> list[d
             "label": "Figure 1F",
             "title": f"{label_1f} expression",
             "lede": verdicts.get("Figure 1F", ""),
-            "status": "exact",
             "plates": [{"file": "Figure_1F_cst1_srs44", "caption": f"{label_1f} — {gene_1f}"}],
             "meta": [
                 ("Cells", in_vivo_cells),
@@ -696,7 +555,6 @@ def build_panels(facts: dict, verdicts: dict[str, str], figures: Path) -> list[d
             "label": "Figure 1G",
             "title": "CST1/SRS44 expression per cluster",
             "lede": verdicts.get("Figure 1G", ""),
-            "status": "exact",
             "plates": [{"file": "Figure_1G_cst1_violin", "caption": "Violins per cluster"}],
             "meta": [
                 ("Cells", f"{in_vivo_cells}<br>{esc(in_vivo_clusters)}"),
@@ -727,11 +585,9 @@ def build_panels(facts: dict, verdicts: dict[str, str], figures: Path) -> list[d
             "label": "Figure 2H",
             "title": "Cyst wall protein co-expression",
             "lede": (
-                "Five cyst wall proteins against the 29 displayed genes. All 145 correlations "
-                "match the published values at two decimals, the largest full-precision "
-                "difference being 1.9e-09. Contributed by Kourosh Zarringhalam."
+                "Five cyst wall proteins against the 29 displayed genes, in the published "
+                "column order. Contributed by Kourosh Zarringhalam."
             ),
-            "status": "original",
             "plates": [
                 {
                     "file": "Figure_2H_correlation_heatmap",
@@ -758,11 +614,6 @@ def build_panels(facts: dict, verdicts: dict[str, str], figures: Path) -> list[d
                 ),
                 ("Colour", "diverging red/blue, —1 to 1, centred on 0"),
                 (
-                    "Verified",
-                    "145/145 published correlations match at two decimals; largest "
-                    "full-precision difference 1.9e-09",
-                ),
-                (
                     "Drawn by",
                     "<code>bzfig.figure_2h_supplementary_4.figure_2h</code>",
                 ),
@@ -786,7 +637,6 @@ def build_panels(facts: dict, verdicts: dict[str, str], figures: Path) -> list[d
             "label": "Supplementary 1A",
             "title": "All cluster markers per cluster",
             "lede": verdicts.get("Supplementary 1A", ""),
-            "status": "exact",
             "plates": [
                 {
                     "file": "Supplementary_1A_all_markers_heatmap",
@@ -865,7 +715,6 @@ def build_panels(facts: dict, verdicts: dict[str, str], figures: Path) -> list[d
                 "label": f"Supplementary {supp1_panel}",
                 "title": f"{row_group}, per-gene expression",
                 "lede": verdicts.get(f"Supplementary {supp1_panel}", ""),
-                "status": "exact",
                 "switch_hint": (
                     f"{len(members)} panels, one per gene. Switch between them in place:"
                 ),
@@ -899,11 +748,9 @@ def build_panels(facts: dict, verdicts: dict[str, str], figures: Path) -> list[d
             "label": "Supplementary 4",
             "title": "Cell-cycle regulators, common and modified cell cycle",
             "lede": (
-                "Reproduces the original R calculation — all 500 z-scores agree to within "
-                "5.6e-08 — with the original gene labels, row orders, colour scale and row "
-                "highlights. Contributed by Kourosh Zarringhalam."
+                "Fifty cell-cycle regulators by phase, with the published gene labels, row "
+                "orders, colour scale and row highlights. Contributed by Kourosh Zarringhalam."
             ),
-            "status": "numerical",
             "plates": [
                 {"file": "Supplementary_4_CCC", "caption": "Common cell cycle (CCC)"},
                 {"file": "Supplementary_4_MCC", "caption": "Modified cell cycle (MCC)"},
@@ -945,14 +792,10 @@ def build_panels(facts: dict, verdicts: dict[str, str], figures: Path) -> list[d
                     "derived from the data",
                 ),
                 (
-                    "Verified",
-                    "500/500 z-scores against the original R values, largest difference 5.6e-08",
-                ),
-                (
-                    "Worth knowing",
-                    "Pale-pink description backgrounds are copied from the final supplementary PDF: "
-                    "19 CCC and 20 MCC labels. The source highlights AP2XI-4 only in MCC; that "
-                    "asymmetry is retained. Numerical agreement does not imply pixel-identical assembly.",
+                    "Scale",
+                    "the colour bar axis runs −4…4 but the values only span −1.77…+1.79; the "
+                    "CCC group is thinly populated, so several genes are detected in one phase "
+                    "only and their rows sit at the one-hot extremes of ±1.789 / −0.447",
                 ),
                 ("Drawn by", "<code>bzfig.figure_2h_supplementary_4.supplementary_4</code>"),
                 (
@@ -975,7 +818,6 @@ def build_panels(facts: dict, verdicts: dict[str, str], figures: Path) -> list[d
             "label": "Supplementary 5A",
             "title": "In vivo clusters, with a legend",
             "lede": verdicts.get("Supplementary 5A", ""),
-            "status": "exact",
             "plates": [
                 {"file": "Supplementary_5A_umap", "caption": "Cluster UMAP with a legend"},
                 {"file": "Supplementary_5A_cells_per_cluster", "caption": "Cells per cluster"},
@@ -1011,7 +853,6 @@ def build_panels(facts: dict, verdicts: dict[str, str], figures: Path) -> list[d
             "label": "Supplementary 5B",
             "title": "In vitro bradyzoites by transferred identity",
             "lede": verdicts.get("Supplementary 5B", ""),
-            "status": "exact",
             "plates": [
                 {
                     "file": "Supplementary_5B_umap",
@@ -1053,7 +894,6 @@ def build_panels(facts: dict, verdicts: dict[str, str], figures: Path) -> list[d
             "label": "Supplementary 5D",
             "title": f"{label_5d} expression",
             "lede": verdicts.get("Supplementary 5D", ""),
-            "status": "exact",
             "plates": [{"file": "Supplementary_5D_srs22a", "caption": f"{label_5d} — {gene_5d}"}],
             "meta": [
                 ("Cells", in_vivo_cells),
@@ -1073,22 +913,6 @@ def build_panels(facts: dict, verdicts: dict[str, str], figures: Path) -> list[d
     panels.append(volcano_panel("5E", facts))
     panels.append(volcano_panel("5F", facts))
 
-    index = next(i for i, p in enumerate(panels) if p["id"] == "supp-1a")
-    panels.insert(index, {
-        "id": "fig-2h", "group": "Figure 2", "label": "Figure 2H",
-        "title": "Original 5 × 29 correlation heatmap",
-        "overlay": "6,505 cells · original R normalization · Pearson correlation across cells",
-        "lede": "All 145 displayed correlations match the original figure at two-decimal precision.",
-        "status": "numerical",
-        "plates": [{"file": "Figure_2H_correlation_heatmap", "caption": "Pearson correlation"}],
-        "meta": [
-            ("Cells", in_vivo_cells),
-            ("Data", "Same deposited logcounts, converted to original R normalization over 8,170 genes"),
-            ("Calculation", "Pearson correlation across cells; first 5 genes against all 29 in the original workbook order"),
-            ("Drawn by", "<code>bzfig.figure_2h_supplementary_4.figure_2h</code>"),
-            ("Values", "<code>figures/tables/Figure_2H_correlations.csv</code>; full precision"),
-        ],
-    })
     return panels
 
 
@@ -1220,7 +1044,7 @@ def cohort_panels(facts: dict, verdicts: dict[str, str], figures: Path) -> list[
             lede = (
                 "The cohort and its positions are the published panel's. Its phase bar is close "
                 f"to the published one but not identical — the widest gap is {number(size)} cells "
-                f"in {phase} — and the two are set out side by side below."
+                f"in {phase} — and the two are compared in the panel metadata."
             )
 
         caption = f"{name} by cell-cycle phase"
@@ -1244,7 +1068,6 @@ def cohort_panels(facts: dict, verdicts: dict[str, str], figures: Path) -> list[
                     "not. The vector that coloured the published 3C is in neither repository, so "
                     "the bar and the scatter here both come from the deposited labels."
                 ),
-                "status": "exact" if letter != "3C" else "labels",
                 "plates": [
                     {
                         "file": f"Figure_{letter}_umap",
@@ -1275,7 +1098,6 @@ def cohort_panels(facts: dict, verdicts: dict[str, str], figures: Path) -> list[
             "label": "Figure 3D",
             "title": "The in vitro cells in the projection",
             "lede": verdicts.get("Figure 3D", ""),
-            "status": "exact",
             "plates": [{"file": "Figure_3D_in_vitro", "caption": "In vitro cells picked out"}],
             "meta": [
                 (
@@ -1315,7 +1137,6 @@ def cohort_panels(facts: dict, verdicts: dict[str, str], figures: Path) -> list[
                 "The same three cohorts as Figure 3A–3C, each drawn alone. The first two "
                 "reproduce exactly; the third inherits Figure 3C's missing phase vector."
             ),
-            "status": "labels",
             "plate_layout": "pair",
             "plates": [
                 {
@@ -1353,8 +1174,8 @@ def cohort_panels(facts: dict, verdicts: dict[str, str], figures: Path) -> list[
                 (
                     "Naming",
                     "the panels are named for the cohort they hold, not for the column header "
-                    "printed above them; the two disagree in the published figure, which is item "
-                    "8 of <code>docs/todo-for-authors.md</code>",
+                    "printed above them, which the published figure does not match to the cells "
+                    "beneath it",
                 ),
                 ("Drawn by", "<code>bzfig.panels.figure_6_umap</code>"),
             ],
@@ -1364,8 +1185,7 @@ def cohort_panels(facts: dict, verdicts: dict[str, str], figures: Path) -> list[
 
 VOLCANO_IDS = {"5C": "supp-5c", "5E": "supp-5e", "5F": "supp-5f"}
 
-# Caveats that belong to one panel only. Both are written up in
-# docs/reproducibility.md, under "Reproduced from a wider gene set".
+# Notes that belong to one panel only.
 VOLCANO_NOTES = {
     "5C": (
         "Points off the top of the axis",
@@ -1398,10 +1218,10 @@ def volcano_panel(panel: str, facts: dict) -> dict:
 
     if published:
         lede = (
-            f"The manuscript reports {number(published['up_in_vivo'])} up / "
-            f"{number(published['down_in_vivo'])} down; the existing rerun produces {number(stats['up'])} / "
-            f"{number(stats['down'])}, from the full "
-            f"{number(universe['toxodb_65_genes'])}-gene universe."
+            f"{number(stats['up'])} genes up and {number(stats['down'])} down in group A, "
+            f"from the full {number(universe['toxodb_65_genes'])}-gene universe; the published "
+            f"panel gives {number(published['up_in_vivo'])} / "
+            f"{number(published['down_in_vivo'])}."
         )
         counts = (
             f"{number(stats['up'])} up / {number(stats['down'])} down in group A "
@@ -1411,8 +1231,9 @@ def volcano_panel(panel: str, facts: dict) -> dict:
         )
     else:
         lede = (
-            f"The existing rerun produces {number(stats['up'])} up / {number(stats['down'])} down. "
-            "The manuscript caption does not report counts for this panel."
+            f"{number(stats['up'])} genes up and {number(stats['down'])} down in group A, "
+            f"from the full {number(universe['toxodb_65_genes'])}-gene universe. The paper "
+            "quotes no counts for this panel."
         )
         counts = (
             f"{number(stats['up'])} up / {number(stats['down'])} down in group A "
@@ -1483,8 +1304,7 @@ def volcano_panel(panel: str, facts: dict) -> dict:
         ),
         (
             "Method",
-            'the recipe, the evidence for the cutoff and what is not reproduced are in '
-            '<a href="#volcanoes">The volcano panels</a>',
+            "the full recipe is in <code>docs/reproducibility.md</code>",
         ),
     ]
 
@@ -1502,57 +1322,9 @@ def volcano_panel(panel: str, facts: dict) -> dict:
         "label": f"Supplementary {panel}",
         "title": title[0].upper() + title[1:],
         "lede": lede,
-        "status": "wider",
         "plates": [{"file": f"Supplementary_{panel}_volcano", "caption": title}],
         "meta": [row for row in meta if row[0]],
     }
-
-
-def missing_panels(facts: dict) -> list[dict]:
-    """The panels that are not regenerated, with their recorded values."""
-    return [
-        {
-            "label": "Figure 1D",
-            "status": "Recorded constant",
-            "what": "# Unique markers/Cluster",
-            "why": (
-                "Hard-coded in the analysis notebook with no accompanying computation. Re-running "
-                "the obvious test on the deposited object gives 37, 94, 84, 861, 18, 52, and on "
-                f"the full {number(facts['universe']['toxodb_65_genes'])}-gene universe "
-                "45, 93, 84, 863, 18, 53 — neither is the published set, so the gene universe is "
-                "not the explanation here. The panel above is drawn from the recorded values, "
-                + ", ".join(str(v) for _, v in sorted(K.UNIQUE_MARKERS_PER_CLUSTER.items()))
-                + " (<code>constants.UNIQUE_MARKERS_PER_CLUSTER</code>), so it matches the paper "
-                "exactly. The final manuscript workbook lists independently support these six counts; "
-                "replotting them is distinct from reproducing their historical marker-selection analysis."
-            ),
-        },
-        {
-            "label": "Figure 3E",
-            "status": "Not from this dataset",
-            "what": "S1/S2 cells on a different embedding",
-            "why": (
-                "Drawn by <code>notebooks/integrate.S1-S2-S3-2026-06-29.ipynb</code>, which "
-                "scVI-integrates the "
-                f"{number(facts['cohorts']['Nonreactivated']['n'])} non-reactivated cells with two "
-                "further samples, S1 (166 cells) and S2 (210), and plots the result on "
-                "<code>obsm['X_scVI_2Dumap']</code> — not the projection this repository ships. "
-                "The S1 and S2 count matrices are in neither repository, so the panel cannot be "
-                "drawn here. See “The cohort panels”."
-            ),
-        },
-        {
-            "label": "Figure 3F",
-            "status": "Not from this dataset",
-            "what": "the same cells coloured by cc_phase",
-            "why": (
-                "The same scVI embedding and the same 376 S1/S2 cells as 3E, coloured by "
-                "<code>cc_phase</code>. Missing for the same reason, and for the same inputs. "
-                "Reading 3E as a selection of the deposited cells is a near miss rather than a "
-                "match — the two embeddings are different point clouds."
-            ),
-        },
-    ]
 
 
 # ------------------------------------------------------------------ rendering
@@ -1680,18 +1452,6 @@ main { min-width: 0; padding: 48px 40px 120px; }
 }
 .lede { color: var(--muted); font-size: 15px; margin: 8px 0 0; max-width: 62ch; }
 
-.badge {
-  flex: none; font: 11px/1.4 var(--sans); letter-spacing: .02em; color: var(--muted);
-  border: 1px solid var(--line); border-radius: 999px; padding: 3px 10px 3px 8px;
-  display: inline-flex; align-items: center; gap: 6px; white-space: nowrap;
-}
-.badge::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--neutral); }
-.badge[data-status="exact"]::before { background: var(--ok); }
-.badge[data-status="numerical"]::before { background: var(--ok); }
-.badge[data-status="reconstruction"]::before { background: var(--warn); }
-.badge[data-status="wider"]::before { background: var(--info); }
-.badge[data-status="labels"]::before { background: var(--warn); }
-
 /* --------------------------------------------------------------- plates */
 .plates { margin: 22px 0 0; display: grid; gap: 22px; }
 .plates[data-layout="pair"] { grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); }
@@ -1773,33 +1533,8 @@ dl.meta-list dd code { background: none; padding: 0; color: var(--fg); }
 .scale-end { font-size: 11px; color: var(--faint); font-variant-numeric: tabular-nums; }
 .scale-label { font-size: 12px; color: var(--muted); }
 
-/* ------------------------------------------------------------- prose */
-.doc h2 { font-size: 22px; font-weight: 600; margin: 0 0 10px; }
-.doc h3 { font-size: 17px; font-weight: 600; margin: 30px 0 8px; }
-.doc h4 { font-size: 15px; font-weight: 600; margin: 22px 0 6px; }
-.doc p { margin: 0 0 12px; max-width: 66ch; }
-.doc ul, .doc ol { margin: 0 0 14px; padding-left: 22px; max-width: 66ch; }
-.doc li { margin-bottom: 6px; }
-.doc .quoted { color: var(--muted); }
-.scroll-x { overflow-x: auto; margin: 0 0 16px; }
-pre {
-  margin: 0 0 16px; padding: 12px 14px; overflow-x: auto;
-  background: var(--card); border: 1px solid var(--line-soft); border-radius: 3px;
-  font: 12px/1.6 var(--mono); color: var(--muted);
-}
-pre code { background: none; padding: 0; font-size: inherit; white-space: pre; }
-table { border-collapse: collapse; font: 13px/1.5 var(--sans); width: 100%; }
-th, td { text-align: left; vertical-align: top; padding: 7px 14px 7px 0; border-bottom: 1px solid var(--line-soft); }
-th { color: var(--faint); font-weight: 600; white-space: nowrap; }
-td { color: var(--muted); }
-.missing { margin: 18px 0 30px; }
-.missing-row { padding: 14px 0; border-top: 1px solid var(--line-soft); display: grid; grid-template-columns: minmax(150px, 200px) minmax(0, 1fr); gap: 6px 20px; }
-.missing-row:last-child { border-bottom: 1px solid var(--line-soft); }
-.missing-label { font: 600 13px/1.5 var(--sans); }
-.missing-what { font: 13px/1.5 var(--sans); color: var(--faint); margin-top: 2px; }
-.missing-why { font: 13px/1.6 var(--sans); color: var(--muted); }
 /* Long gene and constant names must break rather than widen the page. */
-.doc p, .doc li, .lede, .missing-what, .missing-why, td, th { overflow-wrap: break-word; }
+.lede { overflow-wrap: break-word; }
 code { overflow-wrap: break-word; }
 footer { margin-top: 60px; padding-top: 18px; border-top: 1px solid var(--line); font: 12px/1.7 var(--sans); color: var(--faint); }
 
@@ -1821,7 +1556,6 @@ footer { margin-top: 60px; padding-top: 18px; border-top: 1px solid var(--line);
 .lb-side { min-width: 0; overflow-y: auto; color: #fff; font: 13px/1.6 var(--sans); }
 .lb-side .lb-plabel { font: 600 11px/1.4 var(--sans); letter-spacing: .1em; text-transform: uppercase; color: #b9c6d3; }
 .lb-side h3 { margin: 4px 0 8px; font: 600 17px/1.35 var(--serif); color: #fff; }
-.lb-side .badge { color: #cfd6dd; border-color: rgba(255,255,255,.3); }
 .lb-caption { margin: 12px 0 4px; color: #e6e8ea; }
 .lb-side dl.meta-list { background: rgba(255,255,255,.06); border-color: rgba(255,255,255,.14); color: #d6dade; grid-template-columns: minmax(0,1fr); gap: 2px 0; }
 .lb-side dl.meta-list dt { color: #9fb0c0; margin-top: 9px; }
@@ -1860,7 +1594,6 @@ footer { margin-top: 60px; padding-top: 18px; border-top: 1px solid var(--line);
   .panel { scroll-margin-top: 52px; }
   .lb-body { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr) auto; padding: 56px 14px 14px; gap: 12px; }
   .lb-side { max-height: 34vh; background: #14161a; border-radius: 3px; padding: 12px 14px; }
-  .missing-row { grid-template-columns: minmax(0, 1fr); }
   .lb-stage img { max-height: 100%; }
   .lb-nav { left: 14px; top: 14px; bottom: auto; }
   .lb-controls { top: 14px; right: 14px; }
@@ -2000,7 +1733,6 @@ JS = """
   var lbImage = document.getElementById("lb-img");
   var lbLabel = document.getElementById("lb-label");
   var lbTitle = document.getElementById("lb-title");
-  var lbBadge = document.getElementById("lb-badge");
   var lbCaption = document.getElementById("lb-caption");
   var lbMeta = document.getElementById("lb-meta");
   var lbCount = document.getElementById("lb-count");
@@ -2024,9 +1756,6 @@ JS = """
     lbImage.alt = image.alt;
     lbLabel.textContent = panel.getAttribute("data-label") || "";
     lbTitle.textContent = panel.getAttribute("data-title") || "";
-    var status = panel.getAttribute("data-status") || "";
-    lbBadge.textContent = panel.getAttribute("data-status-label") || "";
-    lbBadge.setAttribute("data-status", status);
     lbCaption.textContent = plate.getAttribute("data-caption") || "";
     var meta = panel.querySelector("dl.meta-list");
     lbMeta.innerHTML = meta ? meta.outerHTML : "";
@@ -2141,25 +1870,6 @@ TEMPLATE = """<!DOCTYPE html>
     {%- endfor %}
   </div>
   {%- endfor %}
-  <div class="nav-group">
-    <h3>Reference</h3>
-    <a href="#cohorts" data-target="cohorts">
-      <span class="nav-label">The cohort panels</span>
-      <span class="nav-title">Figure 3 and Figure 6, and the phase labels</span>
-    </a>
-    <a href="#volcanoes" data-target="volcanoes">
-      <span class="nav-label">The volcano panels</span>
-      <span class="nav-title">Supplementary 5C / 5E / 5F, and the wider gene set</span>
-    </a>
-    <a href="#limitations" data-target="limitations">
-      <span class="nav-label">What does not reproduce</span>
-      <span class="nav-title">Figure 1D, Figure 3E and 3F</span>
-    </a>
-    <a href="#notes" data-target="notes">
-      <span class="nav-label">Notes</span>
-      <span class="nav-title">Gene labels, scope, assembly</span>
-    </a>
-  </div>
   <div class="nav-foot">
     <button id="theme-toggle" class="ghost" type="button">Theme: auto</button>
   </div>
@@ -2170,15 +1880,10 @@ TEMPLATE = """<!DOCTYPE html>
 
 <header class="intro" id="top">
   <h1>{{ page_title }}</h1>
-  <p class="sub">Computational figure panels from the deposited data, with methods,
-    numerical validation and reproducibility limits.</p>
-  <p>This page is a preview of the figure panels produced by the
-    <code>BradyzoiteHeterogeneity-figures</code> repository: the rendered output of
-    <code>scripts/make_figures.py</code>, drawn from the deposited dataset, one panel per entry.
-    Each carries the metadata it was drawn with and its status — reproduced exactly,
-    original-R numerical agreement, reproduced from a wider gene set, reproduced with phase
-    labels that differ, a reconstruction, or a recorded constant — taken from
-    <code>docs/reproducibility.md</code>.</p>
+  <p class="sub">Every figure panel regenerated from the deposited single-cell data.</p>
+  <p>The rendered output of <code>scripts/make_figures.py</code> in the
+    <code>BradyzoiteHeterogeneity-figures</code> repository, one panel per entry, each with the
+    cells, genes, colour scale and code it was drawn from.</p>
   <p>These are the individual panels as the analysis produced them. Panel letters, the Figure 1E
     grid and its row labels, the single shared colour bar across 1E and 1F, the in-plot cluster
     numbers in Figure 1B and the coloured row-group bands beside Figure 1C were all added during
@@ -2199,12 +1904,9 @@ TEMPLATE = """<!DOCTYPE html>
 {%- for panel in panels %}
 <section class="panel" id="{{ panel.id }}"
          data-label="{{ panel.label }}"
-         data-title="{{ panel.title }}"
-         data-status="{{ panel.status }}"
-         data-status-label="{{ panel.status_label }}">
+         data-title="{{ panel.title }}">
   <div class="panel-head">
     <h2><span class="plabel">{{ panel.label }}</span>{{ panel.title }}</h2>
-    <span class="badge" data-status="{{ panel.status }}" title="{{ panel.status_note }}">{{ panel.status_label }}</span>
   </div>
   {%- if panel.lede %}
   <p class="lede">{{ panel.lede }}</p>
@@ -2252,76 +1954,14 @@ TEMPLATE = """<!DOCTYPE html>
       <dt>{{ term }}</dt><dd>{{ value }}</dd>
       {%- endfor %}
       <dt>Rendered files</dt><dd>{{ panel.files }}</dd>
-      <dt>Status</dt><dd>{{ panel.status_label }} — {{ panel.status_note }}</dd>
     </dl>
   </details>
-
-  {%- if panel.extra %}
-  <details class="meta">
-    <summary>{{ panel.extra_summary }}</summary>
-    <div class="doc quoted" style="margin-top:10px">{{ panel.extra }}</div>
-  </details>
-  {%- endif %}
 </section>
 {%- endfor %}
 
-<hr class="rule">
-
-<section class="doc" id="cohorts">
-  <h2>The cohort panels</h2>
-  <p class="lede">Figure 3A&ndash;3D and Figure 6 all draw one cohort of the same projection.
-    Three things are worth knowing before reading them: which embedding they use, why Figure 3A
-    and Figure 6's first panel are one image, and where the cell-cycle phase labels behind
-    Figure 3C went. Quoted from <code>docs/reproducibility.md</code>.</p>
-  <div class="quoted">{{ cohort_doc }}</div>
-</section>
-
-<hr class="rule">
-
-<section class="doc" id="volcanoes">
-  <h2>The volcano panels</h2>
-  <p class="lede">Supplementary 5C, 5E and 5F are reconstructed using a wider gene set.
-    Small differences from manuscript counts are documented in
-    <code>docs/reproducibility.md</code>, together with the methods and limitations.</p>
-  <div class="quoted">{{ volcano_doc }}</div>
-</section>
-
-<hr class="rule">
-
-<section class="doc" id="limitations">
-  <h2>What does not reproduce</h2>
-  <p class="lede">Three published panels are not reproductions: one is a recorded constant, and
-    two are drawn from an experiment this dataset does not contain. This is the honest list,
-    summarised
-    from <code>docs/reproducibility.md</code>; the full text of that section follows.</p>
-  <div class="missing">
-    {%- for row in missing %}
-    <div class="missing-row">
-      <div>
-        <div class="missing-label">{{ row.label }}</div>
-        <div class="missing-what">{{ row.what }}</div>
-        <div class="missing-what">{{ row.status }}</div>
-      </div>
-      <div class="missing-why">{{ row.why }}</div>
-    </div>
-    {%- endfor %}
-  </div>
-  <div class="quoted">{{ limitations_doc }}</div>
-</section>
-
-<hr class="rule">
-
-<section class="doc" id="notes">
-  <h2>Notes</h2>
-  <p class="lede">Gene labels, scope and figure assembly, from
-    <code>docs/reproducibility.md</code>.</p>
-  <div class="quoted">{{ notes_doc }}</div>
-</section>
-
 <footer>
   <p>{{ panel_count }} cards covering {{ image_count }} rendered panels, {{ page_size }} in one
-    file. Generated by
-    <code>scripts/make_preview.py</code> from <code>figures/</code>,
+    file. Generated by <code>scripts/make_preview.py</code> from <code>figures/</code>,
     <code>src/bzfig/constants.py</code>, <code>docs/reproducibility.md</code> and
     <code>data/</code>. No external resources: every image is embedded, and the page makes no
     network request.</p>
@@ -2341,7 +1981,6 @@ TEMPLATE = """<!DOCTYPE html>
     <aside class="lb-side">
       <div class="lb-plabel" id="lb-label"></div>
       <h3 id="lb-title"></h3>
-      <span class="badge" id="lb-badge"></span>
       <p class="lb-caption" id="lb-caption"></p>
       <div id="lb-meta"></div>
     </aside>
@@ -2382,7 +2021,9 @@ def main() -> int:
     repro = split_sections((args.docs / "reproducibility.md").read_text())
     verdicts = {
         row["Panel"]: row["What it shows"]
-        for row in find_table(doc_section(repro, "Reproduced exactly"), "Panel", "What it shows")
+        for row in find_table(
+            doc_section(repro, "Panels drawn directly"), "Panel", "What it shows"
+        )
     }
 
     facts = dataset_facts(args.data)
@@ -2391,9 +2032,6 @@ def main() -> int:
     total_bytes = 0
     image_count = 0
     for panel in panels:
-        status_label, status_note = STATUS[panel["status"]]
-        panel["status_label"] = status_label
-        panel["status_note"] = status_note
         overlay = panel["overlay"]
 
         if "variants" in panel:
@@ -2432,11 +2070,6 @@ def main() -> int:
         )
         panel["meta"] = [(term, Markup(value)) for term, value in panel["meta"]]
 
-    panels[[p["id"] for p in panels].index("supp-4")].update(
-        extra_summary="The original recipe, and how it was verified",
-        extra=Markup(md_to_html(doc_section(repro, "Reproduced from the original recipe"))),
-    )
-
     nav_groups: list[dict] = []
     for panel in panels:
         if not nav_groups or nav_groups[-1]["name"] != panel["group"]:
@@ -2451,22 +2084,6 @@ def main() -> int:
             }
         )
 
-    limitations_doc = md_to_html(doc_section(repro, "Not reproducible"))
-    volcano_doc = md_to_html(doc_section(repro, "Reproduced from a wider gene set"))
-    cohort_doc = md_to_html(doc_section(repro, "Figure 3 and Figure 6"))
-    # Everything the page has not already quoted, in the order the document has it,
-    # so a section added to the docs turns up here rather than being dropped.
-    quoted = (
-        "Reproduced exactly",
-        "Reproduced from the original recipe",
-        "Figure 3 and Figure 6",
-        "Reproduced from a wider gene set",
-        "Not reproducible",
-    )
-    notes_doc = "\n".join(
-        md_to_html(text) for heading, text in repro if not heading.startswith(quoted)
-    )
-
     environment = jinja2.Environment(autoescape=True, trim_blocks=False, lstrip_blocks=True)
     template = environment.from_string(TEMPLATE)
 
@@ -2477,14 +2094,6 @@ def main() -> int:
             js=Markup(JS),
             panels=panels,
             nav_groups=nav_groups,
-            missing=[
-                {key: Markup(value) for key, value in row.items()}
-                for row in missing_panels(facts)
-            ],
-            cohort_doc=Markup(cohort_doc),
-            volcano_doc=Markup(volcano_doc),
-            limitations_doc=Markup(limitations_doc),
-            notes_doc=Markup(notes_doc),
             panel_count=len(panels),
             image_count=image_count,
             page_size=page_size,

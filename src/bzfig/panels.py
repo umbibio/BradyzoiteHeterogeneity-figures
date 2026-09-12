@@ -288,10 +288,9 @@ def supplementary_1bc(adata):
 
 # -------------------------------------------------------------------- Supp 4
 #
-# Supplementary 4 moved to :mod:`bzfig.figure_2h_supplementary_4`, which
-# reproduces the original R recipe — the panel-specific LogNormalize, the
-# manuscript row order and the printed gene labels — in place of the
-# reconstruction that used to live here.
+# Supplementary 4 and Figure 2H are drawn by
+# :mod:`bzfig.figure_2h_supplementary_4`, which carries their panel-specific
+# normalisation, row order and gene labels.
 
 
 # -------------------------------------------------------------------- Supp 5
