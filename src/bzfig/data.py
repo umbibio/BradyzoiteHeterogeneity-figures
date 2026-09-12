@@ -205,8 +205,8 @@ def load_extra_genes(datadir: Path = DATA) -> tuple[sp.csr_matrix, pd.DataFrame]
 def load_supp1a_markers(datadir: Path = DATA) -> pd.Index:
     """The Supplementary 1A gene list, in the order the panel plots them.
 
-    The shipped file holds a per-cluster score for each of 600 genes; the panel
-    orders them by the cluster each gene scores highest in.
+    The shipped file holds per-cluster scores for 600 genes. Its existing row
+    order is the recorded plotting order; do not infer a new sort from scores.
     """
     scores = pd.read_csv(Path(datadir) / "supp1a_marker_genes.csv", header=None, index_col=0)
-    return scores.rename(lambda c: c - 1, axis=1).idxmax(axis=1).rename("marker_of_cluster").index
+    return scores.index

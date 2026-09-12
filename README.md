@@ -1,13 +1,13 @@
 # Bradyzoite heterogeneity — figure reproduction
 
-Everything needed to regenerate the figure panels derived from the single-cell
-RNA-seq data: the deposited dataset, the code that draws each panel, and a record
-of what reproduces exactly and what does not.
+Data and code for reproducing the computational panels listed below from the
+processed single-cell dataset. Panel-specific methods, numerical validation,
+coverage and limitations are documented in `docs/reproducibility.md`.
 
 ```bash
-uv sync                              # or: pip install -e .
-python scripts/make_figures.py       # render every panel to PNG, SVG and PDF
-python scripts/make_preview.py       # build preview/index.html from what was rendered
+uv sync --extra preview               # or: pip install -e '.[preview]'
+uv run python scripts/make_figures.py # render every panel to PNG, SVG and PDF
+uv run python scripts/make_preview.py # build preview/index.html from what was rendered
 ```
 
 **You do not need git-lfs.** The input data is stored in LFS, but if your clone
@@ -17,6 +17,19 @@ downloads them from the public mirrors before rendering. Run
 
 Rendered panels land in `figures/`. `python scripts/make_figures.py --list` shows
 the panel names; `--panel 1C 1G` renders a subset.
+
+If using pip instead of uv, activate that environment and use `python` directly.
+To render only Figure 2H and Supplementary Figure 4:
+
+```bash
+python scripts/make_figures.py --panel Figure_2H Supplementary_4
+python -m unittest discover -s tests -v
+```
+
+These heatmaps read the same shared dataset, recover the original R normalization
+and write full-precision companion tables in `figures/tables/`. No Seurat object
+or additional expression download is needed. See
+[`docs/figure-2h-supplementary-4.md`](docs/figure-2h-supplementary-4.md).
 
 `preview/index.html` is a single self-contained page showing every rendered panel
 with its metadata and its reproducibility status — no network access, so it can be
@@ -29,7 +42,7 @@ images.
 | | |
 | --- | --- |
 | [`docs/reproducibility.md`](docs/reproducibility.md) | What reproduces exactly, what is a reconstruction, what is a recorded constant — and why |
-| [`docs/todo-for-authors.md`](docs/todo-for-authors.md) | Open questions and missing inputs |
+| [`docs/figure-2h-supplementary-4.md`](docs/figure-2h-supplementary-4.md) | Figure 2H and Supplementary 4 methods, outputs and validation |
 | [`data/MANIFEST.json`](data/MANIFEST.json) | Every input file with its SHA-256 and download mirrors |
 
 ## Panels
@@ -40,13 +53,15 @@ Drawn from the deposited data:
 * **Figure 1C** — selected marker genes per cluster
 * **Figure 1E / 1F** — per-gene expression UMAPs, and cst1 (srs44)
 * **Figure 1G** — CST1/SRS44 expression violins per cluster
+* **Figure 2H** — original 5 × 29 Pearson correlations across the 6,505 cells
 * **Supplementary 1A** — all cluster markers per cluster
 * **Supplementary 4** — cell-cycle regulators per phase, common (CCC) and modified (MCC) cell cycles
 * **Supplementary 5A / 5B / 5D** — in vivo clusters, in vitro transferred identities, srs22a
 * **Supplementary 5C / 5E / 5F** — the three differential-expression volcanoes
 
-Not regenerated, for the reason given in `docs/reproducibility.md`: **Figure 1D**,
-a recorded constant.
+**Figure 1D** is currently drawn from recorded counts. The manuscript workbook's
+final lists independently support these counts; the historical selection recipe
+is distinct from replotting them. See `docs/reproducibility.md`.
 
 ## The data
 
@@ -67,6 +82,12 @@ python scripts/fetch_data.py --check      # verify what is already on disk
 python scripts/make_figures.py --no-fetch # fail rather than download
 ```
 
+The manifest tries a commit-pinned public GitHub LFS mirror first, then the
+institutional mirrors, avoiding their timeout when the public copy is available.
+Update the pin when publishing a new data release; hashes reject stale files.
+TLS certificate verification remains enabled; a Python installation lacking its
+CA bundle must have that local installation repaired, not disable verification.
+
 The dataset ships in plain formats that need no special library — MatrixMarket
 for the expression matrix, gzipped CSV for the cell and gene metadata and the
 embeddings, JSON for the palettes — alongside an `.h5ad` for convenience. Either
@@ -76,7 +97,8 @@ A second, narrow matrix carries the 152 genes that were filtered out of the
 deposited object before it was saved — the unplaced contigs, with the apicoplast
 and mitochondrial transcripts on them. Only the volcano panels need it, through
 `bzfig.data.load_extra_genes`; `bzfig.de` puts the two matrices side by side to
-get back the gene universe the published test ran on.
+run its reconstruction. Small differences from the manuscript counts are
+documented in the reproducibility notes.
 
 `scripts/export_dataset.py` documents how the deposited dataset was cut down from
 the full analysis object.
@@ -86,13 +108,13 @@ the full analysis object.
 ```
 data/           deposited input (LFS) + MANIFEST.json
 scripts/        fetch_data.py, make_figures.py, export_dataset.py
-src/bzfig/      panels.py, constants.py, scatter3d.py, data.py, de.py
+src/bzfig/      panel implementations, figure metadata and shared data loaders
 figures/        rendered output
-docs/           reproducibility notes, open questions
+docs/           methods, reproducibility and coverage
 preview/        self-contained HTML preview of every panel
 ```
 
-`src/bzfig/constants.py` holds every value the figures depend on that is not
+`src/bzfig/constants.py` and `src/bzfig/figure_2h_supplementary_4_metadata.json` hold values that are not
 derivable from the data — palettes, colour limits, gene lists, and the counts
 that were hard-coded when the figures were made. Each is annotated with where it
 came from.

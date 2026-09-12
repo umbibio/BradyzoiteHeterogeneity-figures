@@ -215,6 +215,9 @@ MANIFEST_NAME = "MANIFEST.json"
 # Public mirrors, highest priority first. Kept here rather than only in the
 # manifest so regenerating the package does not silently drop them.
 MIRRORS = [
+    # Snapshot of the current package; checksum verification rejects stale files
+    # if a future export changes them. Update the pin on the next data release.
+    "https://media.githubusercontent.com/media/umbibio/BradyzoiteHeterogeneity-figures/1c25d514bb4adf00b15f5b467ec68571aefd33c3/data/",
     "https://watson.math.umb.edu/data/BradyzoiteHeterogeneity-figures/data/",
     "https://poisson.math.umb.edu/data/BradyzoiteHeterogeneity-figures/data/",
 ]
@@ -231,9 +234,9 @@ FACTORS_VARM_KEY = "logcounts_scaled_factors"
 EXTRA_MATRIX_NAME = "logcounts_extra.mtx.gz"
 EXTRA_VAR_NAME = "var_extra.csv.gz"
 
-DEFAULT_METHODS_REPO = Path(
-    "/home/agent/workspaces/BradyzoiteHeterogeneity-methods"
-)
+# Source inputs may be overridden with the existing CLI flags. The default is
+# a sibling methods checkout, independent of any author's workstation path.
+DEFAULT_METHODS_REPO = Path(__file__).resolve().parents[2] / "BradyzoiteHeterogeneity-methods"
 DEFAULT_H5AD = (
     DEFAULT_METHODS_REPO
     / "data"
@@ -667,9 +670,9 @@ def build_extra_genes(adata, nr_h5: Path, me49_h5ad: Path, gff: Path):
     diagnostics = {
         "n_vars": len(extra),
         "sources": {
-            "counts_10x_h5": str(nr_h5),
-            "counts_h5ad": str(me49_h5ad),
-            "annotation_gff": str(gff),
+            "counts_10x_h5": nr_h5.name,
+            "counts_h5ad": me49_h5ad.name,
+            "annotation_gff": gff.name,
         },
         "universe": {
             "toxodb_65_genes": len(universe),
@@ -1449,9 +1452,9 @@ def main(argv: list[str] | None = None) -> int:
         ),
         "generated_by": "scripts/export_dataset.py",
         "source": {
-            "h5ad": str(args.h5ad),
+            "h5ad": args.h5ad.name,
             "h5ad_sha256": sha256_of(args.h5ad),
-            "pseudotime_csv": str(args.pseudotime),
+            "pseudotime_csv": args.pseudotime.name,
             "pseudotime_csv_sha256": sha256_of(args.pseudotime),
         },
         "n_obs": int(adata.n_obs),
@@ -1491,7 +1494,7 @@ def main(argv: list[str] | None = None) -> int:
             "obsm": {k: str(np.asarray(adata.obsm[k]).dtype) for k in obsm_keys},
         },
         "cell_cycle_group": {
-            "source": str(args.pseudotime),
+            "source": args.pseudotime.name,
             "definition": (
                 "CCC = non-reactivated cell with non-null pseudotime_UCC; "
                 "MCC = remaining non-reactivated cell; missing otherwise"
