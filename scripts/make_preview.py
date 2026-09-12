@@ -263,7 +263,7 @@ def colour_strip(cmap_name: str, reverse: bool = False) -> str:
 
     ramp = np.linspace(1, 0, 256) if reverse else np.linspace(0, 1, 256)
     rgba = colormaps[cmap_name](ramp, bytes=True)
-    image = Image.fromarray(rgba[np.newaxis, :, :3], "RGB")
+    image = Image.fromarray(rgba[np.newaxis, :, :3])
     buffer = io.BytesIO()
     image.save(buffer, format="PNG", optimize=True)
     return "data:image/png;base64," + base64.b64encode(buffer.getvalue()).decode("ascii")
@@ -347,10 +347,13 @@ STATUS = {
         "Reconstruction",
         "the drawing code does not exist; the recipe was derived by matching the published panel",
     ),
+    "numerical": (
+        "Original-recipe numerical match",
+        "matches the original R values within 1e-6; Supplementary 4 label highlights copied from the source",
+    ),
     "wider": (
-        "Reproduced, wider gene set",
-        "the published test ran on the full ToxoDB-65 gene universe, not on the genes the "
-        "deposited object kept; see “The volcano panels”",
+        "Reconstructed analysis — reconciliation open",
+        "existing wider-gene-set rerun retained; count differences and historical settings still need author confirmation",
     ),
     "constant": (
         "Recorded constant",
@@ -413,7 +416,6 @@ def build_panels(facts: dict, verdicts: dict[str, str]) -> list[dict]:
     heatmap_scale = scale_bar(
         colour_strip("viridis"), "0", f"{K.HEATMAP_VMAX:g}", "viridis (scanpy default)"
     )
-    supp4_scale = scale_bar(colour_strip("RdBu_r"), f"{MINUS}2", "2", "RdBu_r")
     palette = swatches(K.CLUSTER_COLORS)
 
     in_vivo_cells = (
@@ -523,7 +525,7 @@ def build_panels(facts: dict, verdicts: dict[str, str]) -> list[dict]:
             "id": "fig-1d",
             "overlay": dot.join(
                 (
-                    "recorded constants, not data",
+                "recorded counts; final workbook lists agree",
                     ", ".join(
                         str(value)
                         for _, value in sorted(K.UNIQUE_MARKERS_PER_CLUSTER.items())
@@ -535,8 +537,8 @@ def build_panels(facts: dict, verdicts: dict[str, str]) -> list[dict]:
             "label": "Figure 1D",
             "title": "Unique markers per cluster",
             "lede": (
-                "Drawn from the six values hard-coded in the analysis notebook. It is not a "
-                "reproduction — see “What does not reproduce”."
+                "Drawn from the six recorded counts, independently supported by the final "
+                "manuscript workbook lists. The historical marker-selection calculation remains unverified."
             ),
             "status": "constant",
             "plates": [
@@ -712,8 +714,8 @@ def build_panels(facts: dict, verdicts: dict[str, str]) -> list[dict]:
                 ("Drawn by", "<code>bzfig.panels.supplementary_1a</code>"),
                 (
                     "Not included",
-                    "Supplementary 1B–F is not derived from this dataset; the caption attributes "
-                    "it to Benke et al., mined from ToxoDB",
+                    "The external Benke/ToxoDB time courses are Supplementary 2A–F. "
+                    "Supplementary 1B/C are single-cell expression maps not yet included here.",
                 ),
             ],
         }
@@ -726,19 +728,19 @@ def build_panels(facts: dict, verdicts: dict[str, str]) -> list[dict]:
                 (
                     f"CCC {number(facts['cc_counts']['CCC'])} / "
                     f"MCC {number(facts['cc_counts']['MCC'])} cells",
-                    "logcounts",
+                    "original R normalization recovered from shared logcounts",
                     "per-gene z-score across the five phases",
-                    f"RdBu_r {MINUS}2 to 2",
+                    f"original LAB palette {MINUS}2.5 to 2.5",
                 )
             ),
             "group": "Supplementary 4",
             "label": "Supplementary 4",
             "title": "Cell-cycle regulators, common and modified cell cycle",
             "lede": (
-                "A reconstruction: the code that drew this panel does not exist, and the CCC cell "
-                "selection was made interactively rather than in a script."
+                "Kourosh's original R normalization, gene labels and separate final row orders, "
+                "implemented from the same shared dataset. No extra expression matrix is required."
             ),
-            "status": "reconstruction",
+            "status": "numerical",
             "plates": [
                 {"file": "Supplementary_4_CCC", "caption": "Common cell cycle (CCC)"},
                 {"file": "Supplementary_4_MCC", "caption": "Modified cell cycle (MCC)"},
@@ -756,22 +758,23 @@ def build_panels(facts: dict, verdicts: dict[str, str]) -> list[dict]:
                 ("Group definition", f"<code>{esc(facts['cc_definition'])}</code>"),
                 (
                     "Data layer",
-                    "<code>logcounts</code> — not the scaled layer the expression panels use",
+                    "<code>logcounts</code> converted to the original Seurat normalization over "
+                    "the 8,170 deposited genes; other panels' layers are unchanged",
                 ),
                 (
                     "Values",
                     "mean expression per <code>obs.transferred_cc_phase</code>, z-scored per gene "
-                    "across the five phases; rows sorted by peak phase, then peak height",
+                    "across the five phases using sample SD; original independent CCC/MCC row orders",
                 ),
                 ("Genes", f"{len(K.SUPP4_GENES)} regulators, <code>constants.SUPP4_GENES</code>"),
-                ("Colour", f"{supp4_scale} vmin {MINUS}2, vmax 2, centred on 0"),
+                ("Colour", "Original circlize LAB palette, breaks −2.5 / 0 / 2.5; no clustering"),
                 (
                     "Worth knowing",
-                    "the colour bar axis runs −4…4 but the values only span −1.77…+1.79, and the "
-                    "CCC group is thinly populated, so several genes are detected in one phase "
-                    "only and their rows sit at the one-hot extremes of ±1.789 / −0.447",
+                    "Pale-pink description backgrounds are copied from the final supplementary PDF: "
+                    "19 CCC and 20 MCC labels. The source highlights AP2XI-4 only in MCC; that "
+                    "asymmetry is retained. Numerical agreement does not imply pixel-identical assembly.",
                 ),
-                ("Drawn by", "<code>bzfig.panels.supplementary_4</code>"),
+                ("Drawn by", "<code>bzfig.kourosh.supplementary_4</code>; computed values in <code>figures/tables/</code>"),
             ],
         }
     )
@@ -884,6 +887,22 @@ def build_panels(facts: dict, verdicts: dict[str, str]) -> list[dict]:
     panels.append(volcano_panel("5E", facts))
     panels.append(volcano_panel("5F", facts))
 
+    index = next(i for i, p in enumerate(panels) if p["id"] == "supp-1a")
+    panels.insert(index, {
+        "id": "fig-2h", "group": "Figure 2", "label": "Figure 2H",
+        "title": "Original 5 × 29 correlation heatmap",
+        "overlay": "6,505 cells · original R normalization · Pearson correlation across cells",
+        "lede": "Kourosh's contribution: all 145 displayed values match the original figure.",
+        "status": "numerical",
+        "plates": [{"file": "Figure_2H_correlation_heatmap", "caption": "Pearson correlation"}],
+        "meta": [
+            ("Cells", in_vivo_cells),
+            ("Data", "Same deposited logcounts, converted to original R normalization over 8,170 genes"),
+            ("Calculation", "Pearson correlation across cells; first 5 genes against all 29 in the original workbook order"),
+            ("Drawn by", "<code>bzfig.kourosh.figure_2h</code>"),
+            ("Values", "<code>figures/tables/Figure_2H_correlations.csv</code>; full precision"),
+        ],
+    })
     return panels
 
 
@@ -923,8 +942,8 @@ def volcano_panel(panel: str, facts: dict) -> dict:
 
     if published:
         lede = (
-            f"Reproduces the published {number(published['up_in_vivo'])} up / "
-            f"{number(published['down_in_vivo'])} down as {number(stats['up'])} / "
+            f"The manuscript reports {number(published['up_in_vivo'])} up / "
+            f"{number(published['down_in_vivo'])} down; the existing rerun produces {number(stats['up'])} / "
             f"{number(stats['down'])}, from the full "
             f"{number(universe['toxodb_65_genes'])}-gene universe."
         )
@@ -936,8 +955,8 @@ def volcano_panel(panel: str, facts: dict) -> dict:
         )
     else:
         lede = (
-            f"Reproduces {number(stats['up'])} up / {number(stats['down'])} down. The paper "
-            "quotes no counts for this panel; it is validated by its called-out genes instead."
+            f"The existing rerun produces {number(stats['up'])} up / {number(stats['down'])} down. "
+            "Gene-level reconciliation with the final source table remains open."
         )
         counts = (
             f"{number(stats['up'])} up / {number(stats['down'])} down in group A "
@@ -1048,7 +1067,8 @@ def missing_panels(facts: dict) -> list[dict]:
                 "not the explanation here. The panel above is drawn from the recorded values, "
                 + ", ".join(str(v) for _, v in sorted(K.UNIQUE_MARKERS_PER_CLUSTER.items()))
                 + " (<code>constants.UNIQUE_MARKERS_PER_CLUSTER</code>), so it matches the paper "
-                "exactly; it is simply not a reproduction."
+                "exactly. The final manuscript workbook lists independently support these six counts; "
+                "replotting them is distinct from reproducing their historical marker-selection analysis."
             ),
         },
     ]
@@ -1186,8 +1206,9 @@ main { min-width: 0; padding: 48px 40px 120px; }
 }
 .badge::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--neutral); }
 .badge[data-status="exact"]::before { background: var(--ok); }
+.badge[data-status="numerical"]::before { background: var(--ok); }
 .badge[data-status="reconstruction"]::before { background: var(--warn); }
-.badge[data-status="wider"]::before { background: var(--info); }
+.badge[data-status="wider"]::before { background: var(--warn); }
 
 /* --------------------------------------------------------------- plates */
 .plates { margin: 22px 0 0; display: grid; gap: 22px; }
@@ -1655,13 +1676,13 @@ TEMPLATE = """<!DOCTYPE html>
 
 <header class="intro" id="top">
   <h1>{{ page_title }}</h1>
-  <p class="sub">Every panel that could be regenerated from the deposited single-cell data,
-    for review.</p>
+  <p class="sub">Registered computational panels from the deposited data, for review.
+    Remaining coverage and author checks are documented below.</p>
   <p>This page is a preview of the figure panels produced by the
     <code>BradyzoiteHeterogeneity-figures</code> repository: the rendered output of
     <code>scripts/make_figures.py</code>, drawn from the deposited dataset, one panel per entry.
-    Each carries the metadata it was drawn with and its status — reproduced exactly, reproduced
-    from a wider gene set, a reconstruction, or a recorded constant — taken from
+    Each carries the metadata it was drawn with and its status — original checks retained,
+    original-R numerical agreement, reconstruction awaiting reconciliation, or recorded counts — taken from
     <code>docs/reproducibility.md</code>.</p>
   <p>These are the individual panels as the analysis produced them. Panel letters, the Figure 1E
     grid and its row labels, the single shared colour bar across 1E and 1F, the in-plot cluster
@@ -1752,9 +1773,9 @@ TEMPLATE = """<!DOCTYPE html>
 
 <section class="doc" id="volcanoes">
   <h2>The volcano panels</h2>
-  <p class="lede">Supplementary 5C, 5E and 5F were written off as unreproducible when this
-    repository was first put together. They are reproducible — the published test simply ran on a
-    wider gene set than the deposited object holds. Quoted from
+  <p class="lede">Supplementary 5C, 5E and 5F are reconstructed using a wider gene set.
+    Small count differences and historical settings still require author confirmation.
+    Kourosh's heatmap contribution leaves this analysis unchanged. Quoted from
     <code>docs/reproducibility.md</code>, including what still is not reproduced.</p>
   <div class="quoted">{{ volcano_doc }}</div>
 </section>
@@ -1763,7 +1784,7 @@ TEMPLATE = """<!DOCTYPE html>
 
 <section class="doc" id="limitations">
   <h2>What does not reproduce</h2>
-  <p class="lede">One published panel is not a reproduction. This is the honest list, summarised
+  <p class="lede">Recorded-count provenance and outstanding limitations, summarised
     from <code>docs/reproducibility.md</code>; the full text of that section follows.</p>
   <div class="missing">
     {%- for row in missing %}
@@ -1904,8 +1925,8 @@ def main() -> int:
         panel["meta"] = [(term, Markup(value)) for term, value in panel["meta"]]
 
     panels[[p["id"] for p in panels].index("supp-4")].update(
-        extra_summary="Why this is a reconstruction, and how closely it matches",
-        extra=Markup(md_to_html(doc_section(repro, "Reproduced as a reconstruction"))),
+        extra_summary="Original R recipe and numerical QC",
+        extra=Markup(md_to_html(doc_section(repro, "Reproduced from the original R recipe"))),
     )
 
     nav_groups: list[dict] = []
@@ -1929,6 +1950,7 @@ def main() -> int:
     quoted = (
         "Reproduced exactly",
         "Reproduced as a reconstruction",
+        "Reproduced from the original R recipe",
         "Reproduced from a wider gene set",
         "Not reproducible",
     )

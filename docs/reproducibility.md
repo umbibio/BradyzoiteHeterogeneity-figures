@@ -1,7 +1,9 @@
 # What reproduces, and what does not
 
-Every panel below was checked against the published figure. This page records
-the verdict for each, so nobody has to rediscover the awkward cases.
+The original panel checks below are retained. Kourosh's contribution adds a
+numerically tested Figure 2H and replaces the Supplementary 4 approximation
+with the original R recipe. Existing Argenis analysis/plotting choices are not
+changed. See `kourosh-contribution.md` for the precise validation boundary.
 
 ## Reproduced exactly
 
@@ -21,37 +23,44 @@ For Figure 1C, Figure 1G, Supplementary 1A and Supplementary 4 the exported
 values were additionally re-derived from the data object and re-plotted from the
 exported tables alone; both matched the published panels.
 
-## Reproduced as a reconstruction
+## Reproduced from the original R recipe
 
-**Supplementary Figure 4** (CCC and MCC cell-cycle regulator heatmaps).
+**Figure 2H and Supplementary Figure 4** use Kourosh's original R methods,
+implemented in `bzfig.kourosh` using the same deposited `logcounts`, cell
+metadata and gene identifiers. No Seurat object or additional expression
+dataset is required. Original row orders and gene labels are recorded in
+`kourosh_metadata.json`; measured values are calculated, not hard-coded.
 
-The code that drew this panel is not in the analysis repository, and the CCC cell
-selection was made interactively in a dashboard rather than in a script — it
-survives only as a `pseudotime_UCC` column, which is carried into this dataset as
-`obs["cell_cycle_group"]`. The recipe here was derived by matching against the
-published panel:
+The original Seurat normalization was applied after the 8,170-gene subset.
+It is recovered by `log1p(10000 * expm1(logcounts) / rowSum(expm1(logcounts)))`,
+with row sums over all 8,170 genes before selecting plotted genes. This
+conversion is local to these panels and does not modify any shared layer.
 
-* mean per-gene Pearson r = **0.9998** (CCC) and **0.9997** (MCC)
-* the published 50-row order of **both** panels is reproduced exactly by the
-  sort rule used here (by peak phase, then peak height)
+Figure 2H calculates Pearson correlations across the 6,505 cells, the first
+five genes against all 29. All 145 displayed two-decimal values match the
+original. Supplementary 4 computes phase means then sample-SD z-scores of the
+five means, separately for CCC/MCC; its 500 z-scores match the audited R values
+within 1e-6. Floating-point equality is not claimed: source logcounts is float32.
 
-The 50-gene list was transcribed from the published figure; the gene list itself
-lives in a package that is not part of this analysis. `TGME49_291590` is labelled
-"MYND-like zinc finger protein" in the figure but "hypothetical protein" in the
-annotation shipped here.
-
-Two things worth knowing when reading the panel: the colour bar axis runs −4…4
-but the values only span **−1.77…+1.79**, and the CCC group is thinly populated
-(G1a 11, G1b 230, S 106, M 56, C 44 cells), so several genes are detected in one
-phase only and their rows sit at the one-hot extremes of ±1.789 / −0.447.
+The independent publication row orders and original LAB-interpolated color
+breaks (-2.5/0/2.5) are retained. The CCC counts remain 11/230/106/56/44; MCC
+counts are 1517/2789/1219/271/262. The manual pale-pink description backgrounds
+are now copied explicitly from page 4 of the final supplementary PDF, with
+black text and unhighlighted gene IDs. The source has 19 highlighted CCC rows
+and 20 MCC rows: TGME49_315760 (AP2XI-4) is highlighted only in MCC. This source
+asymmetry is preserved, not silently corrected or inferred from expression.
+Numerical reproduction is distinct from exact
+page layout. The original R code and source workbook exist in Kourosh's project;
+the prior "code does not exist" statement was incomplete.
 
 ## Reproduced from a wider gene set — the volcano plots
 
 **Supplementary Figure 5C, 5E and 5F.**
 
-These were written off here as not reproducible. They are reproducible: the
-published test ran on the full **8322-gene** ToxoDB-65 universe, and the
-deposited object has **8170** genes. The missing 152 all sit on unplaced `KE*`
+The existing reconstruction uses the full **8322-gene** ToxoDB-65 universe;
+the deposited object has **8170** genes. Historical settings and final gene-level
+agreement remain to be confirmed; the count differences below are not an exact
+reproduction. This contribution leaves the existing rerun unchanged. The extra 152 sit on unplaced `KE*`
 contigs, and among them are the apicoplast and mitochondrial transcripts — ORF F,
 two cytochrome b's, cytochrome c oxidase III — that the published panels label at
 the positive extreme. They now ship beside the deposited matrix as
@@ -83,28 +92,26 @@ The published extremes were measured off the printed figure at 300 dpi against
 the axis ticks (60.35 px per log2 unit in 5C, 50.1 in 5F). Individual called-out
 points land within 0.06 of the reproduced fold change — sag1 at −10.40 against
 −10.42 in 5C, srs22a at +8.19 against +8.19, ORF F at +8.30 against +8.30,
-cytochrome c oxidase III at +13.79 against +13.80. The extremes disagree, and in every case
-because the *measurement* cannot see the point, not because the reproduction
-puts one where the figure has none. Checking each gene that falls outside a
-measured extreme:
+cytochrome c oxidase III at +13.79 against +13.80. The following are the original
+reconstruction's explanations for differences in the measured extremes; they
+are not independent proof of historical settings:
 
 * **5C**, one gene: a hypothetical protein at −10.99 whose adjusted p-value
   underflows to zero, so it is drawn as a triangle at the axis top — and the
   point detector keeps only components with circularity > 0.65, which excludes
   triangles by construction.
-* **5E**, thirteen genes between −7.96 and −5.71, every one of them with an
-  adjusted p-value between 0.7 and 1.0. They sit on the x-axis baseline, which is
-  the line the detector uses to calibrate the axis; a point printed on that line
-  merges with it.
+* **5E**, thirteen genes between −7.96 and −5.71 have adjusted p-values between
+  0.7 and 1.0. They are in the full test table but are excluded by the plot's
+  significance filter, not hidden on its baseline. The full-table and plotted
+  fold-change ranges must not be conflated.
 * **5F**, none at all — and its negative extreme, the one case with no low-y or
   off-axis points involved, matches to the last digit printed (−12.19 against a
   measured −12.20).
 
-So the measured extremes are a lower bound on the plotted range, and the pattern
-of where they fall short is exactly what the detector's two blind spots predict.
-5F's positive extreme is the residual: +13.07 reproduced against +13.53 measured,
-with no reproduced gene beyond +13.13, which points at calibration error on a
-single isolated point rather than a missing gene.
+Raster comparisons alone do not settle these differences. An earlier account
+also quoted +13.53 as 5F's measured positive extreme while the table above gives
++13.13; this measurement discrepancy remains unverified. No calibration or
+gene-identity explanation is treated as established by this contribution.
 
 **The subsets.** `orig_ident` carries all three cohorts (Nonreactivated 6505,
 me49 Day 3 950, me49 Day 0 602).
@@ -117,9 +124,10 @@ me49 Day 3 950, me49 Day 0 602).
 
 "G1" is `cc_phase` in G1a or G1b, not `transferred_cc_phase`: the transferred
 column gives 4547 against 753 cells for 5F and **673 / 1338** genes, 192 off the
-published 676 / 1146. That closes a question this page used to leave open.
+published 676 / 1146. This supports the current choice but is not a substitute
+for author confirmation of the historical selection.
 
-### Why the 8322-gene universe is the right one
+### Evidence for the upstream normalization denominator
 
 Normalisation ran *before* the gene subset, and per source object: each cell
 divided by its own total over that object's full gene set, scaled to 1e4 and
@@ -132,13 +140,14 @@ its `logcounts` layer to within one float32 ulp. Nothing else does.
 | one 8322-gene total for every cell | 5.3e-03 — wrong for the me49 cells |
 | the 8170 deposited genes | 0.27 — wrong for every cell |
 
-The last row is the point: the deposited object cannot reproduce its own
-normalisation, so the published test ran on something wider.
+This establishes the normalization denominator used upstream of the saved
+subset; it does not independently establish the later differential-expression
+testing universe.
 `scripts/export_dataset.py` measures all three on every run, records them in
 `MANIFEST.json` under `extra_genes`, and refuses to write the package if the
 first row stops holding.
 
-### Why the cutoff is 2, and why the both-groups filter is not a free parameter
+### Evidence supporting the reconstructed cutoff and filter
 
 All three published panels have a clean empty band around zero — a zero-ink
 rectangle spanning the full height, not a thinning. Measured at 600 dpi its edges
@@ -149,12 +158,13 @@ applied to the plotted fold change, and it is 2.0. A 1.5-fold cutoff (log2 =
 upstream pre-filter: a gene that fails |log2FC| > 0.585 also fails |log2FC| > 2,
 so a 1.5-fold pre-filter would change none of these numbers.
 
-The both-groups filter is forced rather than tuned. Scanpy scores a gene with a
+The reconstruction uses a both-groups filter. Scanpy scores a gene with a
 zero group mean against a 1e-9 pseudocount, which drops it into a degenerate
 bucket: without the filter 5C's `logfoldchanges` run −28.19 … +18.24 and the down
 count goes from 1441 to 1879, while the up count does not move at all. Dropping
-exactly the genes undetected in one group restores the published axis range with
-nothing left to choose.
+exactly the genes undetected in one group brings the axis range closer to the
+printed panel. This supports the reconstruction but does not uniquely identify
+the original filtering recipe. Confirm it against the original code or tables.
 
 ### What is *not* reproduced
 
@@ -215,16 +225,21 @@ The differences are small and go in both directions, and nothing suggests a
 different test. The gene universe is no longer an explanation, though: re-running
 the same test on the full 8322 genes now that they are shipped gives
 `[45, 93, 84, 863, 18, 53]`, which is not closer. Whatever fixed these six
-numbers is still missing. The published values are kept in
+numbers is still missing from the historical computation. However, Kourosh's
+review found the final manuscript workbook's F1D gene lists: counting those
+lists gives exactly 38 / 93 / 80 / 881 / 14 / 47. These are existing source data
+for replotting the counts, distinct from reproducing marker selection. The
+workbook is not newly required by this repository. The published values are kept in
 `bzfig.constants.UNIQUE_MARKERS_PER_CLUSTER` and the
 panel is drawn from them, so the rendered panel matches the paper exactly. If the
 original cell turns up, the constant can be replaced by the computation.
 
 ## Not included
 
-**Supplementary Figure 1B–F** (cell-cycle-dependent expression of marker genes)
-is not derived from this dataset at all — the caption attributes it to Benke et
-al., mined from ToxoDB.
+**Supplementary Figure 2A–F** contains external Benke/ToxoDB time-course data.
+**Supplementary Figure 1B/C** contains expression maps from this dataset, not
+external time courses. Those maps and the computational Figure 3 panels remain
+outside the current registered panel list.
 
 ## The enolase labels — the figure is right
 

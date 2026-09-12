@@ -128,7 +128,7 @@ def fetch(entry: dict, outdir: Path, bases: list[str], force: bool) -> bool:
         return False
 
     for url in urls:
-        print(f"  {entry['filename']}: trying {url}")
+        print(f"  {entry['filename']}: trying {url}", flush=True)
         try:
             download(url, path)
         except (urllib.error.URLError, urllib.error.HTTPError, OSError) as exc:

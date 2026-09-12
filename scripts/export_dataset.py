@@ -215,6 +215,9 @@ MANIFEST_NAME = "MANIFEST.json"
 # Public mirrors, highest priority first. Kept here rather than only in the
 # manifest so regenerating the package does not silently drop them.
 MIRRORS = [
+    # Snapshot of the current package; checksum verification rejects stale files
+    # if a future export changes them. Update the pin on the next data release.
+    "https://media.githubusercontent.com/media/umbibio/BradyzoiteHeterogeneity-figures/1c25d514bb4adf00b15f5b467ec68571aefd33c3/data/",
     "https://watson.math.umb.edu/data/BradyzoiteHeterogeneity-figures/data/",
     "https://poisson.math.umb.edu/data/BradyzoiteHeterogeneity-figures/data/",
 ]

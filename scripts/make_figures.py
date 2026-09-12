@@ -13,6 +13,7 @@ git-lfs installed still works. ``--no-fetch`` turns that off.
 from __future__ import annotations
 
 import argparse
+from functools import lru_cache
 import sys
 from pathlib import Path
 
@@ -29,6 +30,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import fetch_data  # noqa: E402
 
 from bzfig import panels  # noqa: E402
+from bzfig import kourosh  # noqa: E402
 from bzfig.data import load_dataset, load_supp1a_markers  # noqa: E402
 
 REPO = Path(__file__).resolve().parent.parent
@@ -60,13 +62,27 @@ def save(figure, outdir: Path, name: str, formats) -> list[Path]:
     return written
 
 
-def build(adata, markers: pd.Index, datadir: Path) -> dict[str, callable]:
+def build(adata, markers: pd.Index, datadir: Path, outdir: Path | None = None) -> dict[str, callable]:
     """Panel name -> zero-argument callable returning a figure.
 
     The volcano panels need *datadir* as well: they widen the matrix back to the
     8322-gene universe with the extra genes shipped beside it.
     """
-    supp4 = panels.supplementary_4_matrices(adata)
+    # Lazy: listing jobs never reads data, and selecting an existing panel does
+    # not compute Kourosh's heatmaps (or vice versa).
+    @lru_cache(maxsize=1)
+    def supp4():
+        tables = kourosh.phase_matrices(adata)
+        if outdir is not None:
+            kourosh.write_tables(outdir / "tables", phase=tables)
+        return tables
+
+    def fig2h():
+        table = kourosh.correlation_matrix(adata)
+        if outdir is not None:
+            kourosh.write_tables(outdir / "tables", correlation=table)
+        return kourosh.figure_2h(table)
+
     jobs = {
         "Figure_1B_umap": lambda: panels.figure_1b_umap(adata),
         "Figure_1B_cells_per_cluster": lambda: panels.figure_1b_counts(adata),
@@ -75,12 +91,9 @@ def build(adata, markers: pd.Index, datadir: Path) -> dict[str, callable]:
         "Figure_1F_cst1_srs44": lambda: panels.figure_1f(adata),
         "Figure_1G_cst1_violin": lambda: panels.figure_1g(adata),
         "Supplementary_1A_all_markers_heatmap": lambda: panels.supplementary_1a(adata, markers),
-        "Supplementary_4_CCC": lambda: panels.supplementary_4(
-            adata, supp4["CCC"], "Common cell cycle (CCC) expression"
-        ),
-        "Supplementary_4_MCC": lambda: panels.supplementary_4(
-            adata, supp4["MCC"], "Modified cell cycle (MCC) expression"
-        ),
+        "Figure_2H_correlation_heatmap": fig2h,
+        "Supplementary_4_CCC": lambda: kourosh.supplementary_4(supp4()["CCC"], "CCC"),
+        "Supplementary_4_MCC": lambda: kourosh.supplementary_4(supp4()["MCC"], "MCC"),
         "Supplementary_5A_umap": lambda: panels.supplementary_5a_umap(adata),
         "Supplementary_5A_cells_per_cluster": lambda: panels.supplementary_5a_counts(adata),
         "Supplementary_5B_umap": lambda: panels.supplementary_5b_umap(adata),
@@ -139,17 +152,17 @@ def main() -> int:
     )
     args = parser.parse_args()
 
-    if not args.list and not ensure_data(args.data, args.no_fetch):
+    if args.list:
+        for name in build(None, None, args.data):
+            print(name)
+        return 0
+
+    if not ensure_data(args.data, args.no_fetch):
         return 1
 
     adata = load_dataset(args.data)
     markers = load_supp1a_markers(args.data)
-    jobs = build(adata, markers, args.data)
-
-    if args.list:
-        for name in jobs:
-            print(name)
-        return 0
+    jobs = build(adata, markers, args.data, args.outdir)
 
     if args.panel:
         wanted = {n for n in jobs for p in args.panel if p.lower() in n.lower()}
