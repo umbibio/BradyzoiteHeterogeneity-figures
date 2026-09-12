@@ -30,6 +30,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import fetch_data  # noqa: E402
 
 from bzfig import figure_2h_supplementary_4 as heatmaps  # noqa: E402
+from bzfig import figure_3ef  # noqa: E402
 from bzfig import panels  # noqa: E402
 from bzfig.constants import COHORTS, SUPP1_GENES  # noqa: E402
 from bzfig.data import load_dataset, load_supp1a_markers  # noqa: E402
@@ -80,6 +81,12 @@ def build(
     # Lazy: listing jobs never reads data, and selecting an existing panel does
     # not compute the Figure 2H / Supplementary 4 heatmaps (or vice versa).
 
+    # The Figure 3E/3F embedding is a small table of its own, read once and
+    # shared by the two panels rather than loaded with the main dataset.
+    @lru_cache(maxsize=1)
+    def integration():
+        return figure_3ef.load_integration(datadir)
+
     # lru_cache so the CCC and MCC panels share one pass over the matrix.
     @lru_cache(maxsize=1)
     def supp4():
@@ -103,6 +110,8 @@ def build(
         "Figure_1G_cst1_violin": lambda: panels.figure_1g(adata),
         "Figure_2H_correlation_heatmap": fig2h,
         "Figure_3D_in_vitro": lambda: panels.figure_3d(adata),
+        "Figure_3E_tachyzoite_highlight": lambda: figure_3ef.figure_3e(integration(), datadir),
+        "Figure_3F_tachyzoite_cc_phase": lambda: figure_3ef.figure_3f(integration(), datadir),
         "Supplementary_1A_all_markers_heatmap": lambda: panels.supplementary_1a(adata, markers),
         "Supplementary_4_CCC": lambda: heatmaps.supplementary_4(supp4()["CCC"], "CCC"),
         "Supplementary_4_MCC": lambda: heatmaps.supplementary_4(supp4()["MCC"], "MCC"),

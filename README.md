@@ -65,6 +65,8 @@ Drawn from the deposited data:
 * **Figure 2H** — original 5 × 29 Pearson correlations across the 6,505 cells
 * **Figure 3A / 3B / 3C** — each cohort by cell-cycle phase, and its phase bar
 * **Figure 3D** — the in vitro cells picked out of the projection
+* **Figure 3E / 3F** — the in vivo tachyzoites on the scVI integration, plain and
+  by cell-cycle phase
 * **Figure 6** — the same three cohorts without the grey background layer
 * **Supplementary 1A** — all cluster markers per cluster
 * **Supplementary 1B / 1C** — eleven per-gene expression UMAPs, micronemes and cyst wall proteins
@@ -72,10 +74,8 @@ Drawn from the deposited data:
 * **Supplementary 5A / 5B / 5D** — in vivo clusters, in vitro transferred identities, srs22a
 * **Supplementary 5C / 5E / 5F** — the three differential-expression volcanoes
 
-Not regenerated, for the reasons given in `docs/reproducibility.md`: **Figure 1D**,
-a recorded constant, and **Figure 3E / 3F**, which are drawn from a different
-object — an scVI integration of the in vivo cells with two samples that are not
-part of this dataset.
+Not regenerated, for the reason given in `docs/reproducibility.md`: **Figure 1D**,
+which is a recorded constant.
 
 ## The data
 
@@ -115,6 +115,14 @@ and mitochondrial transcripts on them. Only the volcano panels need it, through
 `bzfig.data.load_extra_genes`; `bzfig.de` puts the two matrices side by side to
 run its reconstruction. Small differences from the manuscript counts are
 documented in the reproducibility notes.
+
+Figure 3E and 3F come from a second experiment — in vivo tachyzoites
+integrated with the in vivo bradyzoites by scVI. The package carries that
+integration in full: the count matrix the model was trained on, its cell and gene
+tables, the trained checkpoint, and the UMAP coordinates the two panels are drawn
+from. Rendering them needs nothing extra; `scripts/integrate_s1_s2.py` regenerates
+the coordinates from the checkpoint and needs the `integration` extra
+(`pip install -e '.[integration]'`).
 
 `scripts/export_dataset.py` documents how the deposited dataset was cut down from
 the full analysis object.

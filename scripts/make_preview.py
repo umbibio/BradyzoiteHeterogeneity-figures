@@ -225,6 +225,20 @@ def dataset_facts(datadir: Path) -> dict:
         "cc_phase_colors"
     ]
 
+    # Figure 3E and 3F come from the separate scVI integration.
+    integration = _rows(datadir / "figure_3ef_obs.csv.gz")
+    tachyzoites = [row for row in integration if row["sample"] in ("S1", "S2")]
+    facts["figure_3ef"] = {
+        "n_obs": manifest["figure_3ef"]["n_obs"],
+        "n_vars": manifest["figure_3ef"]["n_vars"],
+        "samples": Counter(row["sample"] for row in integration),
+        "tachyzoite": len(tachyzoites),
+        "phases": {
+            phase: sum(1 for row in tachyzoites if row["cc_phase"] == phase)
+            for phase in K.PHASES
+        },
+    }
+
     var = {row["gene_id"]: row for row in _rows(datadir / "var.csv.gz")}
     genes = set(var)
     # Supplementary 1B/1C genes whose printed label the annotation cannot
@@ -1115,6 +1129,94 @@ def cohort_panels(facts: dict, verdicts: dict[str, str], figures: Path) -> list[
                     "<code>constants.BACKGROUND_GRAY</code>)",
                 ),
                 ("Drawn by", "<code>bzfig.panels.figure_3d</code>"),
+            ],
+        }
+    )
+
+    tach = facts["figure_3ef"]
+    phases = " · ".join(f"{p} {number(n)}" for p, n in tach["phases"].items())
+    integration_meta = [
+        (
+            "Cells",
+            f"{number(tach['tachyzoite'])} in vivo tachyzoites (5 dpi, peritoneal cavity) "
+            f"— samples S1 {number(tach['samples']['S1'])} and S2 "
+            f"{number(tach['samples']['S2'])} — integrated with the "
+            f"{number(tach['samples']['NR'])} in vivo bradyzoites",
+        ),
+        (
+            "Embedding",
+            "2-D UMAP of the 10-dimensional scVI latent space "
+            "(<code>data/figure_3ef_embedding.csv.gz</code>), from the deposited checkpoint "
+            "<code>data/figure_3ef_scvi_model.pt</code> over "
+            f"{number(tach['n_obs'])} × {number(tach['n_vars'])} counts",
+        ),
+        (
+            "Frame",
+            "loading the checkpoint is deterministic and so is the UMAP that follows it, so "
+            "this layout reproduces exactly; the published panel was drawn from a different "
+            "fit, so its orientation on the page differs",
+        ),
+    ]
+    built.append(
+        {
+            "id": "fig-3e",
+            "overlay": " · ".join(
+                (
+                    f"{number(tach['tachyzoite'])} in vivo tachyzoites",
+                    f"over {number(tach['samples']['NR'])} bradyzoites",
+                    "scVI integration",
+                )
+            ),
+            "group": "Figure 3",
+            "label": "Figure 3E",
+            "title": "In vivo tachyzoites on the integration",
+            "lede": (
+                f"The {number(tach['tachyzoite'])} in vivo tachyzoites picked out of the "
+                "integration. They fall on the common cell cycle: their nearest bradyzoite "
+                "neighbours in the latent space are 40.3% CCC, against a 6.9% baseline."
+            ),
+            "plates": [
+                {"file": "Figure_3E_tachyzoite_highlight", "caption": "In vivo tachyzoites in red"}
+            ],
+            "meta": integration_meta
+            + [
+                (
+                    "Colour",
+                    swatch_key(
+                        [("in vivo tachyzoite", K.FIG3EF_TACHYZOITE),
+                         ("in vivo bradyzoite", K.BACKGROUND_GRAY)]
+                    )
+                    + "flat (<code>constants.FIG3EF_TACHYZOITE</code>)",
+                ),
+                ("Drawn by", "<code>bzfig.figure_3ef.figure_3e</code>"),
+            ],
+        }
+    )
+    built.append(
+        {
+            "id": "fig-3f",
+            "overlay": " · ".join(
+                (
+                    f"{number(tach['tachyzoite'])} in vivo tachyzoites",
+                    "coloured by obs.cc_phase",
+                    "scVI integration",
+                )
+            ),
+            "group": "Figure 3",
+            "label": "Figure 3F",
+            "title": "The same tachyzoites by cell-cycle phase",
+            "lede": (
+                "The tachyzoites coloured by their cell-cycle phase, which runs "
+                "round the loop in order."
+            ),
+            "plates": [
+                {"file": "Figure_3F_tachyzoite_cc_phase", "caption": "Tachyzoites by cell-cycle phase"}
+            ],
+            "meta": integration_meta
+            + [
+                ("Colour", f"{phase_key}<code>obs.cc_phase</code>, the palette Figure 3A\u20133C uses"),
+                ("Cells per phase", phases),
+                ("Drawn by", "<code>bzfig.figure_3ef.figure_3f</code>"),
             ],
         }
     )

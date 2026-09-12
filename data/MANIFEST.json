@@ -515,7 +515,52 @@
       "bytes": 1814,
       "description": "Per-gene metadata for logcounts_extra.mtx.gz, index column 'gene_id'; same columns as var.csv.gz. Every one of these genes sits on an unplaced KE* contig",
       "urls": []
+    },
+    {
+      "filename": "figure_3ef_counts.mtx.gz",
+      "sha256": "2548e4a54ad6184fb576d2565fbcd2be7ee7ba35c170ef0d65cdd51acbae8955",
+      "bytes": 8470419,
+      "description": "Integer count matrix for the Figure 3E/3F integration, 6881 cells x 8778 genes (6505 in vivo bradyzoites + 376 in vivo tachyzoites from samples S1 and S2). This is the matrix the deposited scVI checkpoint was trained on",
+      "urls": []
+    },
+    {
+      "filename": "figure_3ef_obs.csv.gz",
+      "sha256": "aa5beeb3aae6aa78c0d277f39864a447df826cfda7ab1f10a008bd0678df8c13",
+      "bytes": 36952,
+      "description": "Cell table for figure_3ef_counts.mtx.gz: sample (NR / S1 / S2) and cc_phase. cc_phase is blank for the in vivo bradyzoites, which carry no transferred label here",
+      "urls": []
+    },
+    {
+      "filename": "figure_3ef_var.csv.gz",
+      "sha256": "5e7b20a7d055cccdccb48df266562dec2269577f87b1995d6d2604e4dbad0127",
+      "bytes": 21892,
+      "description": "Gene table for figure_3ef_counts.mtx.gz, in the order the scVI checkpoint expects",
+      "urls": []
+    },
+    {
+      "filename": "figure_3ef_scvi_model.pt",
+      "sha256": "20ba1b3d8721fcef62f448908cff5a801c96a50d359014007b5ba1c5c06c81be",
+      "bytes": 22928227,
+      "description": "Trained scVI checkpoint behind Figure 3E/3F (scvi-tools 1.4.2, 10 latent dimensions, 94 epochs, best validation ELBO 1393.4), as saved by the analysis",
+      "urls": []
+    },
+    {
+      "filename": "figure_3ef_embedding.csv.gz",
+      "sha256": "16da6bb2be50aa6537398ebe80a611ccfb6c9ae9f9b53b47a6f65c8d49286ace",
+      "bytes": 108463,
+      "description": "2-D UMAP of the scVI latent space, the coordinates Figure 3E and 3F are drawn from. Regenerate with scripts/integrate_s1_s2.py",
+      "urls": []
     }
   ],
-  "total_bytes": 35295362
+  "total_bytes": 66861315,
+  "figure_3ef": {
+    "n_obs": 6881,
+    "n_vars": 8778,
+    "samples": {
+      "NR": 6505,
+      "S1": 166,
+      "S2": 210
+    },
+    "note": "A second experiment: in vivo tachyzoites (5 dpi, peritoneal cavity) integrated with the in vivo bradyzoites by scVI. Sample S3 (55 cells) was collected but is not part of the published integration."
+  }
 }

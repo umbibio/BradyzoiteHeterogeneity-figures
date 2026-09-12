@@ -166,14 +166,50 @@ Figure 3B matches the deposited labels exactly. The other two do not:
 
 ### Figure 3E and 3F
 
-These two panels come from a different experiment and are not rendered here. Both
-were drawn from an scVI integration of the 6505 non-reactivated cells with two
-further samples, S1 (166 cells) and S2 (210), plotted on `obsm["X_scVI_2Dumap"]`:
-3E highlights the 376 S1/S2 cells in red, and 3F colours the same cells by
-`cc_phase`. Neither involves `obs["cell_cycle_group"]`, `2d_projection`, or the
-8057-cell object this repository ships, and the S1 and S2 count matrices are not
-part of this dataset. Figure 3G (flow cytometry) and Figure 3H are outside this
-dataset as well.
+These two panels come from a second experiment. A newly generated dataset of in
+vivo tachyzoites (5 dpi, peritoneal cavity) was integrated with the 6,505 in vivo
+bradyzoites by scVI, and the 10-dimensional latent space laid out as a UMAP: 3E
+picks the tachyzoites out in red, 3F colours them by `cc_phase`.
+
+The integration ships with this package as four files — the 6,881 × 8,778 count
+matrix the model was trained on, its cell and gene tables, and the trained
+checkpoint — plus `figure_3ef_embedding.csv.gz`, the UMAP coordinates the panels
+are drawn from. Rendering needs neither torch nor scvi-tools;
+`scripts/integrate_s1_s2.py` regenerates the embedding from the checkpoint and
+needs the `integration` extra.
+
+The published integration uses samples **S1 (166 cells) and S2 (210)**, 376
+tachyzoites in all. A third sample, S3, was collected and annotated (55 cells)
+but is commented out of the analysis notebook's sample list and is not part of
+the published panels; it is not shipped here.
+
+**The layout is the checkpoint's, not the published figure's.** Loading the
+deposited checkpoint is deterministic — the latent is bit-identical across calls,
+and so is the UMAP computed from it — so this embedding reproduces exactly, and
+`scripts/integrate_s1_s2.py` reports the difference against the shipped file
+whenever it runs. What does not carry over is the frame: training a fresh model
+with the same settings converges to the same quality (89 epochs at best
+validation ELBO 1403.7, against the checkpoint's 94 at 1393.4) but lays the cells
+out differently, and two such runs differ from each other about as much as either
+differs from the published panel. The published figure was drawn from one
+particular fit whose weights are not the ones deposited here. The cloud, the
+loop, and the tachyzoites' position on it are the published panel's; their
+orientation on the page is not.
+
+What the panels show does not depend on the layout. Taking each tachyzoite's 30
+nearest bradyzoite neighbours in the latent space itself:
+
+| | CCC share of neighbours |
+| --- | --- |
+| all in vivo bradyzoites (baseline) | 6.9% |
+| in vivo bradyzoites' own neighbourhoods | 7.0% |
+| **the 376 in vivo tachyzoites** | **40.3%** |
+
+A 5.8-fold enrichment, with 41.5% of tachyzoites in a CCC-majority neighbourhood
+(S1 36.2%, S2 43.6%) — the overlap with the common cell cycle that Figure 3E
+reports, measured rather than read off the projection.
+
+Figure 3G (flow cytometry) and Figure 3H are outside this dataset.
 
 ## The volcano panels — Supplementary Figure 5C, 5E and 5F
 
@@ -338,8 +374,7 @@ constant can be replaced by the computation.
 not derived from this dataset: the caption attributes it to Benke et al., mined
 from ToxoDB.
 
-**Figure 3E and 3F** are drawn from a different object, and **Figure 3G and 3H**
-from flow cytometry and imaging; see the Figure 3 section above. The cartoons
+**Figure 3G and 3H** come from flow cytometry and imaging. The cartoons
 above Figure 6's UMAPs and beside Supplementary 1B are BioRender artwork.
 
 ## The enolase labels

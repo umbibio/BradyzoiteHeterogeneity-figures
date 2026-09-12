@@ -154,6 +154,10 @@ SUPP1_GENES = [
 BACKGROUND_GRAY = "#d3d3d3"
 FIG3D_IN_VITRO = "#FA8072"
 
+# Figure 3E draws the in vivo tachyzoites in red over the bradyzoites in grey,
+# following the notebook's palette=["C0", "C3"].
+FIG3EF_TACHYZOITE = "#d62728"
+
 # The three cohorts of orig_ident that Figure 3A-C and Figure 6 draw, with the
 # Figure 3 panel letter, the name used for the rendered file, and whether that
 # Figure 3 panel carries the grey layer. 3A does not: it is the same rendering

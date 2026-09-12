@@ -16,6 +16,7 @@ dependencies = [
 
 [project.optional-dependencies]
 preview = ["jinja2>=3.1", "pillow>=10.0"]
+integration = ["scvi-tools>=1.4", "torch>=2.0"]
 
 [build-system]
 requires = ["hatchling"]
