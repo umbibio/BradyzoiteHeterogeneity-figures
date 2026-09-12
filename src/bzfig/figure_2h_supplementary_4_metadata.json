@@ -1,7 +1,7 @@
 {
   "provenance": {
-    "fig2H": "updated 2H.xlsx; fig2H_heatmap.R; original 5-by-29 Pearson matrix",
-    "supp4": "New Heatmap for Reviewer 1.xlsx; heatmap_phase_mean.R; archived reviewer1_heatmap_UCC_v1.pdf and reviewer1_heatmap_BCC_v2.pdf",
+    "fig2H": "Figure 2H source-data correlation matrix and original Seurat RNA/data calculation; 5-by-29 Pearson matrix",
+    "supp4": "Supplementary Figure 4 source-data phase means and original Seurat RNA/data calculation; independent manuscript row orders for CCC and MCC",
     "color_lut": "circlize 0.4.17 colorRamp2; CIE LAB interpolation; 1025 equally spaced stops"
   },
   "supp4_highlights": {

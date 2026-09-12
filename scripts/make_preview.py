@@ -4,7 +4,7 @@
     python scripts/make_preview.py                  # -> preview/index.html
     python scripts/make_preview.py --max-edge 1400  # smaller embedded images
 
-The page is a review aid for the authors: every rendered panel, its metadata and
+The page is a public figure browser: every rendered panel, its metadata and
 its reproducibility status, in one file that makes **no network request of any
 kind**. Images are embedded as ``data:`` URIs, the stylesheet and script are
 inline, and nothing is fetched at load time.
@@ -352,8 +352,8 @@ STATUS = {
         "matches the original R values within 1e-6; Supplementary 4 label highlights copied from the source",
     ),
     "wider": (
-        "Reconstructed analysis — reconciliation open",
-        "existing wider-gene-set rerun retained; count differences and historical settings still need author confirmation",
+        "Reconstructed analysis",
+        "wider-gene-set reconstruction; small differences from manuscript counts are documented below",
     ),
     "constant": (
         "Recorded constant",
@@ -562,8 +562,8 @@ def build_panels(facts: dict, verdicts: dict[str, str]) -> list[dict]:
                     f"{number(facts['n_vars'])} genes and "
                     "<code>[45, 93, 84, 863, 18, 53]</code> on the full "
                     f"{number(facts['universe']['toxodb_65_genes'])}-gene universe now that it is "
-                    "shipped — neither is the published set, so the gene universe is not the "
-                    "explanation and whatever fixed these six numbers is still missing",
+                    "shipped — neither matches the manuscript counts; the historical "
+                    "marker-selection calculation is not reproduced",
                 ),
                 ("Colour", f"{palette} cluster palette, <code>constants.CLUSTER_COLORS</code>"),
                 ("Drawn by", "<code>bzfig.panels.figure_1d</code>"),
@@ -613,10 +613,9 @@ def build_panels(facts: dict, verdicts: dict[str, str]) -> list[dict]:
                 ),
                 ("Drawn by", "<code>bzfig.panels.figure_1e</code>"),
                 (
-                    "Label check",
-                    "the two enolase labels are mapped the other way round in an early notebook "
-                    "cell; this repository follows the gene annotation and the published panels — "
-                    "see the note below",
+                    "Gene labels",
+                    "TGME49_268850 is enolase 2; TGME49_268860 is enolase 1, "
+                    "consistent with the deposited gene annotation and manuscript",
                 ),
                 (
                     "Assembly",
@@ -737,7 +736,7 @@ def build_panels(facts: dict, verdicts: dict[str, str]) -> list[dict]:
             "label": "Supplementary 4",
             "title": "Cell-cycle regulators, common and modified cell cycle",
             "lede": (
-                "Kourosh's original R normalization, gene labels and separate final row orders, "
+                "Original R normalization, gene labels and separate final row orders, "
                 "implemented from the same shared dataset. No extra expression matrix is required."
             ),
             "status": "numerical",
@@ -774,7 +773,7 @@ def build_panels(facts: dict, verdicts: dict[str, str]) -> list[dict]:
                     "19 CCC and 20 MCC labels. The source highlights AP2XI-4 only in MCC; that "
                     "asymmetry is retained. Numerical agreement does not imply pixel-identical assembly.",
                 ),
-                ("Drawn by", "<code>bzfig.kourosh.supplementary_4</code>; computed values in <code>figures/tables/</code>"),
+                ("Drawn by", "<code>bzfig.figure_2h_supplementary_4.supplementary_4</code>; computed values in <code>figures/tables/</code>"),
             ],
         }
     )
@@ -892,14 +891,14 @@ def build_panels(facts: dict, verdicts: dict[str, str]) -> list[dict]:
         "id": "fig-2h", "group": "Figure 2", "label": "Figure 2H",
         "title": "Original 5 × 29 correlation heatmap",
         "overlay": "6,505 cells · original R normalization · Pearson correlation across cells",
-        "lede": "Kourosh's contribution: all 145 displayed values match the original figure.",
+        "lede": "All 145 displayed correlations match the original figure at two-decimal precision.",
         "status": "numerical",
         "plates": [{"file": "Figure_2H_correlation_heatmap", "caption": "Pearson correlation"}],
         "meta": [
             ("Cells", in_vivo_cells),
             ("Data", "Same deposited logcounts, converted to original R normalization over 8,170 genes"),
             ("Calculation", "Pearson correlation across cells; first 5 genes against all 29 in the original workbook order"),
-            ("Drawn by", "<code>bzfig.kourosh.figure_2h</code>"),
+            ("Drawn by", "<code>bzfig.figure_2h_supplementary_4.figure_2h</code>"),
             ("Values", "<code>figures/tables/Figure_2H_correlations.csv</code>; full precision"),
         ],
     })
@@ -956,7 +955,7 @@ def volcano_panel(panel: str, facts: dict) -> dict:
     else:
         lede = (
             f"The existing rerun produces {number(stats['up'])} up / {number(stats['down'])} down. "
-            "Gene-level reconciliation with the final source table remains open."
+            "The manuscript caption does not report counts for this panel."
         )
         counts = (
             f"{number(stats['up'])} up / {number(stats['down'])} down in group A "
@@ -1663,7 +1662,7 @@ TEMPLATE = """<!DOCTYPE html>
     </a>
     <a href="#notes" data-target="notes">
       <span class="nav-label">Notes</span>
-      <span class="nav-title">Label correction, scope, assembly</span>
+      <span class="nav-title">Gene labels, scope, assembly</span>
     </a>
   </div>
   <div class="nav-foot">
@@ -1676,13 +1675,13 @@ TEMPLATE = """<!DOCTYPE html>
 
 <header class="intro" id="top">
   <h1>{{ page_title }}</h1>
-  <p class="sub">Registered computational panels from the deposited data, for review.
-    Remaining coverage and author checks are documented below.</p>
+  <p class="sub">Computational figure panels from the deposited data, with methods,
+    numerical validation and reproducibility limits.</p>
   <p>This page is a preview of the figure panels produced by the
     <code>BradyzoiteHeterogeneity-figures</code> repository: the rendered output of
     <code>scripts/make_figures.py</code>, drawn from the deposited dataset, one panel per entry.
-    Each carries the metadata it was drawn with and its status — original checks retained,
-    original-R numerical agreement, reconstruction awaiting reconciliation, or recorded counts — taken from
+    Each carries the metadata it was drawn with and its status — reproduced panels,
+    original-R numerical agreement, reconstructed analyses, or recorded counts — taken from
     <code>docs/reproducibility.md</code>.</p>
   <p>These are the individual panels as the analysis produced them. Panel letters, the Figure 1E
     grid and its row labels, the single shared colour bar across 1E and 1F, the in-plot cluster
@@ -1774,9 +1773,8 @@ TEMPLATE = """<!DOCTYPE html>
 <section class="doc" id="volcanoes">
   <h2>The volcano panels</h2>
   <p class="lede">Supplementary 5C, 5E and 5F are reconstructed using a wider gene set.
-    Small count differences and historical settings still require author confirmation.
-    Kourosh's heatmap contribution leaves this analysis unchanged. Quoted from
-    <code>docs/reproducibility.md</code>, including what still is not reproduced.</p>
+    Small differences from manuscript counts are documented in
+    <code>docs/reproducibility.md</code>, together with the methods and limitations.</p>
   <div class="quoted">{{ volcano_doc }}</div>
 </section>
 
@@ -1805,8 +1803,8 @@ TEMPLATE = """<!DOCTYPE html>
 
 <section class="doc" id="notes">
   <h2>Notes</h2>
-  <p class="lede">Also quoted from <code>docs/reproducibility.md</code>. Open questions for the
-    authors are collected separately in <code>docs/todo-for-authors.md</code>.</p>
+  <p class="lede">Gene labels, scope and figure assembly, from
+    <code>docs/reproducibility.md</code>.</p>
   <div class="quoted">{{ notes_doc }}</div>
 </section>
 

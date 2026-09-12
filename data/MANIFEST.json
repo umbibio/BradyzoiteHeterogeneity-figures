@@ -3,9 +3,9 @@
   "description": "Format-independent export of the single-cell object used by the figure panels. MatrixMarket matrices are cells x genes.",
   "generated_by": "scripts/export_dataset.py",
   "source": {
-    "h5ad": "/home/agent/workspaces/BradyzoiteHeterogeneity-methods/data/integrated_adata_me49_nr_subset_annotated_sparse.h5ad",
+    "h5ad": "integrated_adata_me49_nr_subset_annotated_sparse.h5ad",
     "h5ad_sha256": "e38cc6bdae3e2e3395100270d7d758887ce26b77bb0adf2fe66235c84f625d32",
-    "pseudotime_csv": "/home/agent/workspaces/BradyzoiteHeterogeneity-methods/data/nr_pseudotime_BCC_UCC.csv",
+    "pseudotime_csv": "nr_pseudotime_BCC_UCC.csv",
     "pseudotime_csv_sha256": "2582526747bcdd4a8e4630984d51b526b3c0278637e505e56e5ceb530c5fcfd3"
   },
   "n_obs": 8057,
@@ -28,9 +28,9 @@
   "extra_genes": {
     "n_vars": 152,
     "sources": {
-      "counts_10x_h5": "/home/agent/workspaces/BradyzoiteHeterogeneity-methods/data/non-reactivated_v65.h5",
-      "counts_h5ad": "/home/agent/workspaces/BradyzoiteHeterogeneity-methods/data/011_me49_filtered.h5ad",
-      "annotation_gff": "/home/agent/workspaces/BradyzoiteHeterogeneity-methods/data/input/genome/annotations/ToxoDB-65_TgondiiME49.gff"
+      "counts_10x_h5": "non-reactivated_v65.h5",
+      "counts_h5ad": "011_me49_filtered.h5ad",
+      "annotation_gff": "ToxoDB-65_TgondiiME49.gff"
     },
     "universe": {
       "toxodb_65_genes": 8322,
@@ -285,7 +285,7 @@
     }
   },
   "cell_cycle_group": {
-    "source": "/home/agent/workspaces/BradyzoiteHeterogeneity-methods/data/nr_pseudotime_BCC_UCC.csv",
+    "source": "nr_pseudotime_BCC_UCC.csv",
     "definition": "CCC = non-reactivated cell with non-null pseudotime_UCC; MCC = remaining non-reactivated cell; missing otherwise",
     "counts": {
       "CCC": 447,

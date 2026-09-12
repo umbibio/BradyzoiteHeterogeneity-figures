@@ -12,7 +12,7 @@ import numpy as np
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
-from bzfig import kourosh
+from bzfig import figure_2h_supplementary_4 as heatmaps
 from bzfig.data import load_dataset
 
 
@@ -30,8 +30,8 @@ class OriginalHeatmapTests(unittest.TestCase):
     def setUpClass(cls):
         cls.adata = load_dataset(ROOT / "data")
         cls.reference = json.loads((ROOT / "tests/reference_heatmaps.json").read_text())
-        cls.phase = kourosh.phase_matrices(cls.adata)
-        cls.correlation = kourosh.correlation_matrix(cls.adata)
+        cls.phase = heatmaps.phase_matrices(cls.adata)
+        cls.correlation = heatmaps.correlation_matrix(cls.adata)
 
     def test_original_phase_values_and_orders(self):
         for cycle in ("CCC", "MCC"):
@@ -50,20 +50,20 @@ class OriginalHeatmapTests(unittest.TestCase):
 
     def test_no_mutation_of_shared_data(self):
         before = self.adata.layers["logcounts"].copy()
-        kourosh.normalized_expression(self.adata)
+        heatmaps.normalized_expression(self.adata)
         self.assertEqual((before != self.adata.layers["logcounts"]).nnz, 0)
 
     def test_refuse_wrong_gene_universe(self):
         with self.assertRaisesRegex(ValueError, "8,170"):
-            kourosh.normalized_expression(self.adata[:, :100].copy())
+            heatmaps.normalized_expression(self.adata[:, :100].copy())
 
     def test_h5ad_and_plain_inputs_agree(self):
         alternate = load_dataset(ROOT / "data", source="h5ad")
-        np.testing.assert_allclose(kourosh.correlation_matrix(alternate), self.correlation, atol=1e-12, rtol=0)
+        np.testing.assert_allclose(heatmaps.correlation_matrix(alternate), self.correlation, atol=1e-12, rtol=0)
 
     def test_tables_are_written_from_results(self):
         with tempfile.TemporaryDirectory() as out:
-            kourosh.write_tables(Path(out), correlation=self.correlation, phase=self.phase)
+            heatmaps.write_tables(Path(out), correlation=self.correlation, phase=self.phase)
             self.assertEqual(len(list(Path(out).glob("*.csv"))), 7)
 
     def test_original_manual_highlight_annotations(self):
@@ -78,8 +78,8 @@ class OriginalHeatmapTests(unittest.TestCase):
             with self.subTest(cycle=cycle):
                 ids = shared | ({"315760"} if cycle == "MCC" else set())
                 expected = {"TGME49_" + gene for gene in ids}
-                self.assertEqual(set(kourosh.METADATA["supp4_highlights"][cycle]), expected)
-                fig = kourosh.supplementary_4(self.phase[cycle], cycle)
+                self.assertEqual(set(heatmaps.METADATA["supp4_highlights"][cycle]), expected)
+                fig = heatmaps.supplementary_4(self.phase[cycle], cycle)
                 try:
                     ax = fig.axes[0]
                     patches = {p.get_gid().removeprefix("manual-highlight-"): p

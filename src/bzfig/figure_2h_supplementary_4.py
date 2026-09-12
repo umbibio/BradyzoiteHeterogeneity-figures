@@ -1,7 +1,7 @@
-"""Kourosh's Figure 2H and Supplementary 4, using the shared figure dataset.
+"""Figure 2H and Supplementary 4 heatmaps, using the shared figure dataset.
 
 The original R scripts used Seurat LogNormalize after the 8,170-gene subset.
-Argenis's logcounts was normalized before that subset. Closing expm1(logcounts)
+The deposited logcounts was normalized before that subset. Closing expm1(logcounts)
 to 10,000 over the SAME 8,170 genes recovers the R values to source float32
 precision. This panel-specific conversion does not modify adata or other plots.
 No additional expression dataset, Seurat installation, or new analysis is used.
@@ -21,7 +21,7 @@ import scipy.sparse as sp
 
 from .constants import PHASES
 
-METADATA = json.loads(Path(__file__).with_name("kourosh_metadata.json").read_text())
+METADATA = json.loads(Path(__file__).with_name("figure_2h_supplementary_4_metadata.json").read_text())
 PHASE_COLORS = ["#3375a7", "#da8238", "#369539", "#bf3c3e", "#9972b3"]
 
 

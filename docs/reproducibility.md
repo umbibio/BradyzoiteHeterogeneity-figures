@@ -1,9 +1,9 @@
 # What reproduces, and what does not
 
-The original panel checks below are retained. Kourosh's contribution adds a
-numerically tested Figure 2H and replaces the Supplementary 4 approximation
-with the original R recipe. Existing Argenis analysis/plotting choices are not
-changed. See `kourosh-contribution.md` for the precise validation boundary.
+This document distinguishes panels reproduced from the deposited data,
+original-recipe numerical matches, reconstructed analyses and recorded
+constants. Figure 2H and Supplementary 4 methods and validation are detailed in
+[figure-2h-supplementary-4.md](figure-2h-supplementary-4.md).
 
 ## Reproduced exactly
 
@@ -25,11 +25,11 @@ exported tables alone; both matched the published panels.
 
 ## Reproduced from the original R recipe
 
-**Figure 2H and Supplementary Figure 4** use Kourosh's original R methods,
-implemented in `bzfig.kourosh` using the same deposited `logcounts`, cell
+**Figure 2H and Supplementary Figure 4** use the original R methods,
+implemented in `bzfig.figure_2h_supplementary_4` using the same deposited `logcounts`, cell
 metadata and gene identifiers. No Seurat object or additional expression
 dataset is required. Original row orders and gene labels are recorded in
-`kourosh_metadata.json`; measured values are calculated, not hard-coded.
+`figure_2h_supplementary_4_metadata.json`; measured values are calculated, not hard-coded.
 
 The original Seurat normalization was applied after the 8,170-gene subset.
 It is recovered by `log1p(10000 * expm1(logcounts) / rowSum(expm1(logcounts)))`,
@@ -49,18 +49,16 @@ are now copied explicitly from page 4 of the final supplementary PDF, with
 black text and unhighlighted gene IDs. The source has 19 highlighted CCC rows
 and 20 MCC rows: TGME49_315760 (AP2XI-4) is highlighted only in MCC. This source
 asymmetry is preserved, not silently corrected or inferred from expression.
-Numerical reproduction is distinct from exact
-page layout. The original R code and source workbook exist in Kourosh's project;
-the prior "code does not exist" statement was incomplete.
+Numerical reproduction is distinct from exact page layout.
 
 ## Reproduced from a wider gene set — the volcano plots
 
 **Supplementary Figure 5C, 5E and 5F.**
 
 The existing reconstruction uses the full **8322-gene** ToxoDB-65 universe;
-the deposited object has **8170** genes. Historical settings and final gene-level
-agreement remain to be confirmed; the count differences below are not an exact
-reproduction. This contribution leaves the existing rerun unchanged. The extra 152 sit on unplaced `KE*`
+the deposited object has **8170** genes. The results below are a reconstruction,
+not an exact match to the manuscript counts. Agreement with the historical
+gene-level results is not established. The extra 152 sit on unplaced `KE*`
 contigs, and among them are the apicoplast and mitochondrial transcripts — ORF F,
 two cytochrome b's, cytochrome c oxidase III — that the published panels label at
 the positive extreme. They now ship beside the deposited matrix as
@@ -108,10 +106,9 @@ are not independent proof of historical settings:
   off-axis points involved, matches to the last digit printed (−12.19 against a
   measured −12.20).
 
-Raster comparisons alone do not settle these differences. An earlier account
-also quoted +13.53 as 5F's measured positive extreme while the table above gives
-+13.13; this measurement discrepancy remains unverified. No calibration or
-gene-identity explanation is treated as established by this contribution.
+Raster comparisons cannot establish historical settings or gene-level agreement.
+The measured plot extremes are approximate image-derived values, not source
+data or criteria for adjusting the reconstructed analysis.
 
 **The subsets.** `orig_ident` carries all three cohorts (Nonreactivated 6505,
 me49 Day 3 950, me49 Day 0 602).
@@ -124,8 +121,8 @@ me49 Day 3 950, me49 Day 0 602).
 
 "G1" is `cc_phase` in G1a or G1b, not `transferred_cc_phase`: the transferred
 column gives 4547 against 753 cells for 5F and **673 / 1338** genes, 192 off the
-published 676 / 1146. This supports the current choice but is not a substitute
-for author confirmation of the historical selection.
+published 676 / 1146. This supports the reconstructed subset but does not
+independently establish the historical selection.
 
 ### Evidence for the upstream normalization denominator
 
@@ -164,7 +161,7 @@ bucket: without the filter 5C's `logfoldchanges` run −28.19 … +18.24 and the
 count goes from 1441 to 1879, while the up count does not move at all. Dropping
 exactly the genes undetected in one group brings the axis range closer to the
 printed panel. This supports the reconstruction but does not uniquely identify
-the original filtering recipe. Confirm it against the original code or tables.
+the original filtering recipe.
 
 ### What is *not* reproduced
 
@@ -221,18 +218,13 @@ Re-running that test on the deposited object gives `[37, 94, 84, 861, 18, 52]`:
 | Published | 38 | 93 | 80 | 881 | 14 | 47 |
 | Re-derived here | 37 | 94 | 84 | 861 | 18 | 52 |
 
-The differences are small and go in both directions, and nothing suggests a
-different test. The gene universe is no longer an explanation, though: re-running
-the same test on the full 8322 genes now that they are shipped gives
-`[45, 93, 84, 863, 18, 53]`, which is not closer. Whatever fixed these six
-numbers is still missing from the historical computation. However, Kourosh's
-review found the final manuscript workbook's F1D gene lists: counting those
-lists gives exactly 38 / 93 / 80 / 881 / 14 / 47. These are existing source data
-for replotting the counts, distinct from reproducing marker selection. The
-workbook is not newly required by this repository. The published values are kept in
-`bzfig.constants.UNIQUE_MARKERS_PER_CLUSTER` and the
-panel is drawn from them, so the rendered panel matches the paper exactly. If the
-original cell turns up, the constant can be replaced by the computation.
+Re-running the same test on the full 8322-gene matrix gives
+`[45, 93, 84, 863, 18, 53]`, also distinct from the manuscript counts. The final
+source-data workbook's F1D gene lists contain exactly 38 / 93 / 80 / 881 / 14 / 47
+genes. Replotting these counts is distinct from reproducing the historical
+marker-selection calculation. This repository draws the panel from
+`bzfig.constants.UNIQUE_MARKERS_PER_CLUSTER`; the workbook is not a runtime
+input and the historical selection calculation is not reproduced here.
 
 ## Not included
 
@@ -241,12 +233,10 @@ original cell turns up, the constant can be replaced by the computation.
 external time courses. Those maps and the computational Figure 3 panels remain
 outside the current registered panel list.
 
-## The enolase labels — the figure is right
+## Enolase gene labels
 
-An early cell of the analysis notebook (cell 142) maps the two enolase labels the
-wrong way round (`eno-1 → TGME49_268850`, `eno-2 → TGME49_268860`). That cell was
-never used: the published panel came from cell 145, which uses the mapping this
-repository follows:
+The repository uses the following gene labels, consistent with the manuscript
+and the deposited gene metadata:
 
 * `TGME49_268850` = **enolase 2**, the tachyzoite isoform — detected in 0.6% of
   in vivo cells, the near-blank panel in the tachyzoite-marker row
@@ -268,9 +258,6 @@ One point for readers coming from mammalian work: the human ENO1/ENO2 numbering
 means something entirely different (ENO1 is the ubiquitous isoform there). The
 *Toxoplasma* literature uses one convention throughout; the apparent conflict is
 only with the human gene names.
-
-Some stale PNGs in the analysis repository carry the swapped names from the
-unused cell. They are not the naming authority.
 
 ## Panel assembly
 

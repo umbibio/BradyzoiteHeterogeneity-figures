@@ -30,7 +30,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import fetch_data  # noqa: E402
 
 from bzfig import panels  # noqa: E402
-from bzfig import kourosh  # noqa: E402
+from bzfig import figure_2h_supplementary_4 as heatmaps  # noqa: E402
 from bzfig.data import load_dataset, load_supp1a_markers  # noqa: E402
 
 REPO = Path(__file__).resolve().parent.parent
@@ -69,19 +69,19 @@ def build(adata, markers: pd.Index, datadir: Path, outdir: Path | None = None) -
     8322-gene universe with the extra genes shipped beside it.
     """
     # Lazy: listing jobs never reads data, and selecting an existing panel does
-    # not compute Kourosh's heatmaps (or vice versa).
+    # not compute the Figure 2H / Supplementary 4 heatmaps (or vice versa).
     @lru_cache(maxsize=1)
     def supp4():
-        tables = kourosh.phase_matrices(adata)
+        tables = heatmaps.phase_matrices(adata)
         if outdir is not None:
-            kourosh.write_tables(outdir / "tables", phase=tables)
+            heatmaps.write_tables(outdir / "tables", phase=tables)
         return tables
 
     def fig2h():
-        table = kourosh.correlation_matrix(adata)
+        table = heatmaps.correlation_matrix(adata)
         if outdir is not None:
-            kourosh.write_tables(outdir / "tables", correlation=table)
-        return kourosh.figure_2h(table)
+            heatmaps.write_tables(outdir / "tables", correlation=table)
+        return heatmaps.figure_2h(table)
 
     jobs = {
         "Figure_1B_umap": lambda: panels.figure_1b_umap(adata),
@@ -92,8 +92,8 @@ def build(adata, markers: pd.Index, datadir: Path, outdir: Path | None = None) -
         "Figure_1G_cst1_violin": lambda: panels.figure_1g(adata),
         "Supplementary_1A_all_markers_heatmap": lambda: panels.supplementary_1a(adata, markers),
         "Figure_2H_correlation_heatmap": fig2h,
-        "Supplementary_4_CCC": lambda: kourosh.supplementary_4(supp4()["CCC"], "CCC"),
-        "Supplementary_4_MCC": lambda: kourosh.supplementary_4(supp4()["MCC"], "MCC"),
+        "Supplementary_4_CCC": lambda: heatmaps.supplementary_4(supp4()["CCC"], "CCC"),
+        "Supplementary_4_MCC": lambda: heatmaps.supplementary_4(supp4()["MCC"], "MCC"),
         "Supplementary_5A_umap": lambda: panels.supplementary_5a_umap(adata),
         "Supplementary_5A_cells_per_cluster": lambda: panels.supplementary_5a_counts(adata),
         "Supplementary_5B_umap": lambda: panels.supplementary_5b_umap(adata),

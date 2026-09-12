@@ -1,8 +1,8 @@
 # Bradyzoite heterogeneity — figure reproduction
 
-Data and code for the computational panels listed below, with a record of
-numerical matches and outstanding reconstruction/assembly questions. This is
-not yet a claim of coverage of every single-cell panel in the manuscript.
+Data and code for reproducing the computational panels listed below from the
+processed single-cell dataset. Panel-specific methods, numerical validation,
+coverage and limitations are documented in `docs/reproducibility.md`.
 
 ```bash
 uv sync --extra preview               # or: pip install -e '.[preview]'
@@ -19,7 +19,7 @@ Rendered panels land in `figures/`. `python scripts/make_figures.py --list` show
 the panel names; `--panel 1C 1G` renders a subset.
 
 If using pip instead of uv, activate that environment and use `python` directly.
-To render only Kourosh's contribution, without rerunning any other panels:
+To render only Figure 2H and Supplementary Figure 4:
 
 ```bash
 python scripts/make_figures.py --panel Figure_2H Supplementary_4
@@ -28,7 +28,8 @@ python -m unittest discover -s tests -v
 
 These heatmaps read the same shared dataset, recover the original R normalization
 and write full-precision companion tables in `figures/tables/`. No Seurat object
-or additional expression download is needed. See `docs/kourosh-contribution.md`.
+or additional expression download is needed. See
+[`docs/figure-2h-supplementary-4.md`](docs/figure-2h-supplementary-4.md).
 
 `preview/index.html` is a single self-contained page showing every rendered panel
 with its metadata and its reproducibility status — no network access, so it can be
@@ -41,7 +42,7 @@ images.
 | | |
 | --- | --- |
 | [`docs/reproducibility.md`](docs/reproducibility.md) | What reproduces exactly, what is a reconstruction, what is a recorded constant — and why |
-| [`docs/todo-for-authors.md`](docs/todo-for-authors.md) | Open questions and missing inputs |
+| [`docs/figure-2h-supplementary-4.md`](docs/figure-2h-supplementary-4.md) | Figure 2H and Supplementary 4 methods, outputs and validation |
 | [`data/MANIFEST.json`](data/MANIFEST.json) | Every input file with its SHA-256 and download mirrors |
 
 ## Panels
@@ -96,8 +97,8 @@ A second, narrow matrix carries the 152 genes that were filtered out of the
 deposited object before it was saved — the unplaced contigs, with the apicoplast
 and mitochondrial transcripts on them. Only the volcano panels need it, through
 `bzfig.data.load_extra_genes`; `bzfig.de` puts the two matrices side by side to
-run its current reconstruction. The historical testing universe and small count
-differences still need confirmation; see the reproducibility notes.
+run its reconstruction. Small differences from the manuscript counts are
+documented in the reproducibility notes.
 
 `scripts/export_dataset.py` documents how the deposited dataset was cut down from
 the full analysis object.
@@ -107,13 +108,13 @@ the full analysis object.
 ```
 data/           deposited input (LFS) + MANIFEST.json
 scripts/        fetch_data.py, make_figures.py, export_dataset.py
-src/bzfig/      panels.py, constants.py, scatter3d.py, data.py, de.py
+src/bzfig/      panel implementations, figure metadata and shared data loaders
 figures/        rendered output
-docs/           reproducibility notes, open questions
+docs/           methods, reproducibility and coverage
 preview/        self-contained HTML preview of every panel
 ```
 
-`src/bzfig/constants.py` and `src/bzfig/kourosh_metadata.json` hold values that are not
+`src/bzfig/constants.py` and `src/bzfig/figure_2h_supplementary_4_metadata.json` hold values that are not
 derivable from the data — palettes, colour limits, gene lists, and the counts
 that were hard-coded when the figures were made. Each is annotated with where it
 came from.
