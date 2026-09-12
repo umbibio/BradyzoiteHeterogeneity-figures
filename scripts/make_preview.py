@@ -299,7 +299,30 @@ def dataset_facts(datadir: Path) -> dict:
             row["transferred_cc_phase"] for row in obs if row["cell_cycle_group"] == group
         )
 
-    genes = {row["gene_id"] for row in _rows(datadir / "var.csv.gz")}
+    # The Figure 3 / Figure 6 cohorts, and the phase labels they are coloured by.
+    facts["cohorts"] = {}
+    for _, _, orig_ident, _ in K.COHORTS:
+        cells = [row for row in obs if row["orig_ident"] == orig_ident]
+        facts["cohorts"][orig_ident] = {
+            "n": len(cells),
+            "phases": Counter(row["transferred_cc_phase"] for row in cells),
+        }
+    facts["in_vitro_all"] = sum(1 for row in obs if row["dataset_type"] == "inVitro")
+    facts["phase_colors"] = json.loads((datadir / "uns_colors.json").read_text())[
+        "cc_phase_colors"
+    ]
+
+    var = {row["gene_id"]: row for row in _rows(datadir / "var.csv.gz")}
+    genes = set(var)
+    # Supplementary 1B/1C genes whose printed label the annotation cannot
+    # corroborate: no gene_name, and a description that names nothing.
+    facts["unnamed_supp1"] = [
+        (label, gene_id)
+        for _, label, gene_id in K.SUPP1_GENES
+        if gene_id in var
+        and not var[gene_id]["gene_name"].strip()
+        and "hypothetical" in var[gene_id]["gene_description"].lower()
+    ]
     with (datadir / "supp1a_marker_genes.csv").open(newline="") as handle:
         markers = [row[0] for row in csv.reader(handle) if row]
     facts["supp1a_listed"] = len(markers)
@@ -351,6 +374,12 @@ STATUS = {
         "Original-recipe numerical match",
         "matches the original R values within 1e-6; Supplementary 4 label highlights copied from the source",
     ),
+    "labels": (
+        "Reproduced, phase labels differ",
+        "the cells and their positions are the published panel's; the cell-cycle phase vector "
+        "that coloured it is in neither repository, so the colours come from the deposited "
+        "labels instead — see “The cohort panels”",
+    ),
     "wider": (
         "Reconstructed analysis",
         "wider-gene-set reconstruction; small differences from manuscript counts are documented below",
@@ -377,14 +406,19 @@ def swatches(colors: list[str]) -> str:
     return f'<span class="swatches">{dots}</span>'
 
 
-def colour_key(names: list[str]) -> str:
-    """The volcano point colours, as a small swatch-and-label key."""
+def swatch_key(pairs: list[tuple[str, str]]) -> str:
+    """Colours as a small swatch-and-label key: (label, hex) in drawing order."""
     items = "".join(
-        f'<span class="key"><span class="swatch" style="background:{esc(K.VOLCANO_COLORS[n])}"'
-        f' title="{esc(K.VOLCANO_COLORS[n])}"></span>{esc(n)}</span>'
-        for n in names
+        f'<span class="key"><span class="swatch" style="background:{esc(colour)}"'
+        f' title="{esc(colour)}"></span>{esc(label)}</span>'
+        for label, colour in pairs
     )
     return f'<span class="keys">{items}</span>'
+
+
+def colour_key(names: list[str]) -> str:
+    """The volcano point colours, as a small swatch-and-label key."""
+    return swatch_key([(name, K.VOLCANO_COLORS[name]) for name in names])
 
 
 def signed(value: float, places: int = 2, trim: bool = False) -> str:
@@ -404,7 +438,7 @@ def scale_bar(uri: str, low: str, high: str, label: str) -> str:
     )
 
 
-def build_panels(facts: dict, verdicts: dict[str, str]) -> list[dict]:
+def build_panels(facts: dict, verdicts: dict[str, str], figures: Path) -> list[dict]:
     """The panel table. Values come from constants.py, the data and the docs."""
     vmin = (
         f"{MINUS}{abs(K.EXPRESSION_VMIN):g}"
@@ -679,6 +713,8 @@ def build_panels(facts: dict, verdicts: dict[str, str]) -> list[dict]:
         }
     )
 
+    panels.extend(cohort_panels(facts, verdicts, figures))
+
     panels.append(
         {
             "id": "supp-1a",
@@ -713,13 +749,76 @@ def build_panels(facts: dict, verdicts: dict[str, str]) -> list[dict]:
                 ("Drawn by", "<code>bzfig.panels.supplementary_1a</code>"),
                 (
                     "Rest of the figure",
-                    "Supplementary 1B and 1C are eleven per-gene expression UMAPs from this same "
-                    "dataset — a gap in this repository, not out of scope. (The Benke et al. "
-                    "caption belongs to Supplementary Figure 2.)",
+                    "Supplementary 1B and 1C are the eleven per-gene expression UMAPs below, from "
+                    "this same dataset. Panel 1B also carries a BioRender cartoon of the two "
+                    "microneme subpopulations, which is figure assembly, not a panel. (The Benke "
+                    "et al. caption belongs to Supplementary Figure 2.)",
                 ),
             ],
         }
     )
+
+    for supp1_panel in ("1B", "1C"):
+        row_group = SUPP1_ROW_GROUPS[supp1_panel]
+        members = [row for row in K.SUPP1_GENES if row[0] == supp1_panel]
+        unnamed = [
+            (label, gene_id)
+            for label, gene_id in facts["unnamed_supp1"]
+            if any(label == member[1] for member in members)
+        ]
+        meta = [
+            ("Cells", in_vivo_cells),
+            ("Embedding", UMAP_ROW),
+            ("Data layer", scaled_layer),
+            (
+                "Genes",
+                f"<code>constants.SUPP1_GENES</code>, the {len(members)} of panel "
+                f"{supp1_panel}<br>"
+                + "<br>".join(gene(label, gene_id) for _, label, gene_id in members),
+            ),
+            (
+                "Colour",
+                f"{expression_scale} vmin {vmin}, vmax {vmax}, the same fixed scale as "
+                "Figure 1E, 1F and Supplementary 5D",
+            ),
+            ("Drawn by", "<code>bzfig.panels.supplementary_1bc</code>"),
+        ]
+        if unnamed:
+            meta.append(
+                (
+                    "Labels not in the annotation",
+                    ", ".join(gene(label, gene_id) for label, gene_id in unnamed)
+                    + (" is" if len(unnamed) == 1 else " are")
+                    + ' "hypothetical protein" in the ToxoDB-65 annotation shipped here, with no '
+                    "<code>var.gene_name</code>. Those labels rest on the published caption and "
+                    "on the per-gene PNGs the analysis left behind, not on the data.",
+                )
+            )
+        panels.append(
+            {
+                "id": f"supp-{supp1_panel.lower()}",
+                "overlay": expression_overlay,
+                "group": "Supplementary 1",
+                "label": f"Supplementary {supp1_panel}",
+                "title": f"{row_group}, per-gene expression",
+                "lede": verdicts.get(f"Supplementary {supp1_panel}", ""),
+                "status": "exact",
+                "switch_hint": (
+                    f"{len(members)} panels, one per gene. Switch between them in place:"
+                ),
+                "variants": [
+                    {
+                        "key": label,
+                        "label": label,
+                        "row_group": row_group,
+                        "file": f"Supplementary_{supp1_panel}_{label}",
+                        "caption": f"{label} — {gene_id}",
+                    }
+                    for _, label, gene_id in members
+                ],
+                "meta": meta,
+            }
+        )
 
     panels.append(
         {
@@ -906,6 +1005,276 @@ def build_panels(facts: dict, verdicts: dict[str, str]) -> list[dict]:
     return panels
 
 
+# What the two Supplementary 1 gene panels show, as the published figure groups them.
+SUPP1_ROW_GROUPS = {"1B": "Microneme transcripts", "1C": "Known cyst wall proteins"}
+
+# How the cohorts of constants.COHORTS are named in prose.
+COHORT_TITLES = {
+    "Nonreactivated": "In vivo bradyzoites",
+    "me49 Day 0": "me49 Day 0",
+    "me49 Day 3": "me49 Day 3",
+}
+
+
+def same_bytes(first: Path, second: Path) -> bool:
+    import hashlib
+
+    return (
+        first.exists()
+        and second.exists()
+        and hashlib.sha256(first.read_bytes()).digest()
+        == hashlib.sha256(second.read_bytes()).digest()
+    )
+
+
+def phase_gaps(panel: str, deposited: Counter) -> dict[str, int]:
+    """Published bar minus deposited labels, per phase."""
+    published = K.FIG3_PHASE_BARS_PUBLISHED[panel]
+    return {phase: published[phase] - deposited.get(phase, 0) for phase in K.PHASES}
+
+
+def widest_gap(gaps: dict[str, int]) -> tuple[str, int]:
+    phase = max(gaps, key=lambda name: abs(gaps[name]))
+    return phase, abs(gaps[phase])
+
+
+def phase_bar_row(panel: str, deposited: Counter, cohort_size: int) -> tuple[str, str]:
+    """How the drawn phase bar compares with the one measured off the figure."""
+    published = K.FIG3_PHASE_BARS_PUBLISHED[panel]
+    drawn = " · ".join(f"{phase} {number(deposited.get(phase, 0))}" for phase in K.PHASES)
+    printed = " · ".join(f"{phase} {number(published[phase])}" for phase in K.PHASES)
+    gaps = phase_gaps(panel, deposited)
+    difference = sum(abs(gap) for gap in gaps.values())
+    if difference == 0:
+        verdict = "the two agree exactly"
+    else:
+        phase, size = widest_gap(gaps)
+        verdict = (
+            f"they differ by at least {number(difference // 2)} of {number(cohort_size)} cells "
+            f"({difference / 2 / cohort_size:.1%}), the widest single bar being "
+            f"{number(size)} in {phase}"
+        )
+    return (
+        "Phase bar",
+        f"drawn from <code>obs.transferred_cc_phase</code> — {esc(drawn)}<br>"
+        f"measured off the published bar — {esc(printed)} "
+        f"(<code>constants.FIG3_PHASE_BARS_PUBLISHED</code>, scaled so the five bars sum to the "
+        f"cohort size); {esc(verdict)}",
+    )
+
+
+def cohort_panels(facts: dict, verdicts: dict[str, str], figures: Path) -> list[dict]:
+    """Figure 3A–3D and Figure 6 — one cohort of the projection at a time."""
+    phase_key = swatch_key(list(zip(K.PHASES, facts["phase_colors"])))
+    grey = f'<span class="swatch" style="background:{K.BACKGROUND_GRAY}"></span>'
+    total = facts["n_obs"]
+    built: list[dict] = []
+
+    for letter, _, orig_ident, background in K.COHORTS:
+        panel = f"Figure {letter}"
+        cohort = facts["cohorts"][orig_ident]
+        name = COHORT_TITLES[orig_ident]
+        layer = (
+            f"drawn over the whole {number(total)}-cell projection, the other "
+            f"{number(total - cohort['n'])} cells in {grey} <code>{K.BACKGROUND_GRAY}</code> "
+            "(<code>constants.BACKGROUND_GRAY</code>)"
+            if background
+            else "the cohort alone — this panel carries no grey layer"
+        )
+        meta = [
+            (
+                "Cells",
+                f"{number(cohort['n'])} cells — <code>obs.orig_ident == '{esc(orig_ident)}'</code>"
+                f"<br>{layer}",
+            ),
+            ("Embedding", UMAP_ROW),
+            (
+                "Colour",
+                f"{phase_key}<code>obs.transferred_cc_phase</code>, palette from "
+                "<code>uns['cc_phase_colors']</code>, which travels with the data",
+            ),
+            phase_bar_row(letter, cohort["phases"], cohort["n"]),
+            (
+                "Drawn by",
+                "<code>bzfig.panels.figure_3_umap</code>, "
+                "<code>bzfig.panels.figure_3_counts</code>",
+            ),
+        ]
+        if letter == "3A":
+            twin = same_bytes(
+                figures / "Figure_3A_umap.png", figures / "Figure_6_nonreactivated.png"
+            )
+            meta.append(
+                (
+                    "Same as Figure 6",
+                    "with no grey layer this is the same rendering as Figure 6's first panel"
+                    + (
+                        " — the two rendered files are byte-identical."
+                        if twin
+                        else ", though the two rendered files differ."
+                    ),
+                )
+            )
+        if letter == "3C":
+            meta.append(
+                (
+                    "The gap",
+                    "the phase vector behind the published panel is in neither repository — not "
+                    "<code>transferred_cc_phase</code>, not <code>cc_phase</code>, and nothing in "
+                    "the analysis repository. It colours the <em>scatter</em> as well as the bar, "
+                    "so this panel puts orange (G1b) where the published one has a blue (G1a) "
+                    "group in the upper cluster. The cells and their positions are unaffected.",
+                )
+            )
+
+        lede = ""
+        if letter == "3A":
+            phase, size = widest_gap(phase_gaps(letter, cohort["phases"]))
+            lede = (
+                "The cohort and its positions are the published panel's. Its phase bar is close "
+                f"to the published one but not identical — the widest gap is {number(size)} cells "
+                f"in {phase} — and the two are set out side by side below."
+            )
+
+        caption = f"{name} by cell-cycle phase"
+        built.append(
+            {
+                "id": f"fig-{letter.lower()}",
+                "overlay": " · ".join(
+                    (
+                        f"{number(cohort['n'])} cells",
+                        "coloured by obs.transferred_cc_phase",
+                        "grey layer" if background else "no grey layer",
+                    )
+                ),
+                "group": "Figure 3",
+                "label": panel,
+                "title": f"{name} by cell-cycle phase",
+                "lede": lede
+                or verdicts.get(panel)
+                or (
+                    "The cohort and its positions are the published panel's; the phase labels are "
+                    "not. The vector that coloured the published 3C is in neither repository, so "
+                    "the bar and the scatter here both come from the deposited labels."
+                ),
+                "status": "exact" if letter != "3C" else "labels",
+                "plates": [
+                    {
+                        "file": f"Figure_{letter}_umap",
+                        "caption": caption
+                        + (
+                            " — phase labels differ from the published panel"
+                            if letter == "3C"
+                            else ""
+                        ),
+                    },
+                    {"file": f"Figure_{letter}_cells_per_phase", "caption": "Cells per phase"},
+                ],
+                "meta": meta,
+            }
+        )
+
+    built.append(
+        {
+            "id": "fig-3d",
+            "overlay": " · ".join(
+                (
+                    f"{number(facts['in_vitro_all'])} in vitro cells",
+                    "flat highlight, no phase colouring",
+                    f"over all {number(total)} cells",
+                )
+            ),
+            "group": "Figure 3",
+            "label": "Figure 3D",
+            "title": "The in vitro cells in the projection",
+            "lede": verdicts.get("Figure 3D", ""),
+            "status": "exact",
+            "plates": [{"file": "Figure_3D_in_vitro", "caption": "In vitro cells picked out"}],
+            "meta": [
+                (
+                    "Cells",
+                    f"{number(facts['in_vitro_all'])} in vitro cells — "
+                    f"<code>obs.dataset_type == 'inVitro'</code> — over all {number(total)}",
+                ),
+                ("Embedding", UMAP_ROW),
+                (
+                    "Colour",
+                    swatch_key(
+                        [("in vitro", K.FIG3D_IN_VITRO), ("everything else", K.BACKGROUND_GRAY)]
+                    )
+                    + "flat, not by phase (<code>constants.FIG3D_IN_VITRO</code> and "
+                    "<code>constants.BACKGROUND_GRAY</code>)",
+                ),
+                ("Drawn by", "<code>bzfig.panels.figure_3d</code>"),
+            ],
+        }
+    )
+
+    cohorts = [(COHORT_TITLES[ident], facts["cohorts"][ident]["n"]) for _, _, ident, _ in K.COHORTS]
+    built.append(
+        {
+            "id": "fig-6",
+            "overlay": " · ".join(
+                (
+                    " / ".join(f"{name} {number(size)}" for name, size in cohorts),
+                    "coloured by obs.transferred_cc_phase",
+                    "no grey layer",
+                )
+            ),
+            "group": "Figure 6",
+            "label": "Figure 6",
+            "title": "The three cohorts, without the grey layer",
+            "lede": (
+                "The same three cohorts as Figure 3A–3C, each drawn alone. The first two "
+                "reproduce exactly; the third inherits Figure 3C's missing phase vector."
+            ),
+            "status": "labels",
+            "plate_layout": "pair",
+            "plates": [
+                {
+                    "file": f"Figure_6_{name}",
+                    "caption": COHORT_TITLES[ident]
+                    + {
+                        "3A": " — the same rendering as Figure 3A",
+                        "3C": " — phase labels differ from the published panel",
+                    }.get(letter, ""),
+                }
+                for letter, name, ident, _ in K.COHORTS
+            ],
+            "meta": [
+                (
+                    "Cells",
+                    "one cohort of <code>obs.orig_ident</code> per panel — "
+                    + " · ".join(f"{esc(name)} {number(size)}" for name, size in cohorts),
+                ),
+                ("Embedding", UMAP_ROW),
+                (
+                    "Colour",
+                    f"{phase_key}<code>obs.transferred_cc_phase</code>; Figure 6 never draws the "
+                    "grey layer",
+                ),
+                (
+                    "Relation to Figure 3",
+                    "the same three cohorts as Figure 3A–3C. 3A already carries no grey layer, so "
+                    "it and the first panel here are one rendering; 3B and 3C add it.",
+                ),
+                (
+                    "Phase labels",
+                    "the third panel is the me49 Day 3 cohort, so it inherits the gap described "
+                    "under Figure 3C — positions right, phase colours from the deposited labels.",
+                ),
+                (
+                    "Naming",
+                    "the panels are named for the cohort they hold, not for the column header "
+                    "printed above them; the two disagree in the published figure, which is item "
+                    "8 of <code>docs/todo-for-authors.md</code>",
+                ),
+                ("Drawn by", "<code>bzfig.panels.figure_6_umap</code>"),
+            ],
+        }
+    )
+    return built
+
 VOLCANO_IDS = {"5C": "supp-5c", "5E": "supp-5e", "5F": "supp-5f"}
 
 # Caveats that belong to one panel only. Both are written up in
@@ -1071,6 +1440,31 @@ def missing_panels(facts: dict) -> list[dict]:
                 "replotting them is distinct from reproducing their historical marker-selection analysis."
             ),
         },
+        {
+            "label": "Figure 3E",
+            "status": "Not from this dataset",
+            "what": "S1/S2 cells on a different embedding",
+            "why": (
+                "Drawn by <code>notebooks/integrate.S1-S2-S3-2026-06-29.ipynb</code>, which "
+                "scVI-integrates the "
+                f"{number(facts['cohorts']['Nonreactivated']['n'])} non-reactivated cells with two "
+                "further samples, S1 (166 cells) and S2 (210), and plots the result on "
+                "<code>obsm['X_scVI_2Dumap']</code> — not the projection this repository ships. "
+                "The S1 and S2 count matrices are in neither repository, so the panel cannot be "
+                "drawn here. See “The cohort panels”."
+            ),
+        },
+        {
+            "label": "Figure 3F",
+            "status": "Not from this dataset",
+            "what": "the same cells coloured by cc_phase",
+            "why": (
+                "The same scVI embedding and the same 376 S1/S2 cells as 3E, coloured by "
+                "<code>cc_phase</code>. Missing for the same reason, and for the same inputs. "
+                "Reading 3E as a selection of the deposited cells is a near miss rather than a "
+                "match — the two embeddings are different point clouds."
+            ),
+        },
     ]
 
 
@@ -1208,7 +1602,8 @@ main { min-width: 0; padding: 48px 40px 120px; }
 .badge[data-status="exact"]::before { background: var(--ok); }
 .badge[data-status="numerical"]::before { background: var(--ok); }
 .badge[data-status="reconstruction"]::before { background: var(--warn); }
-.badge[data-status="wider"]::before { background: var(--warn); }
+.badge[data-status="wider"]::before { background: var(--info); }
+.badge[data-status="labels"]::before { background: var(--warn); }
 
 /* --------------------------------------------------------------- plates */
 .plates { margin: 22px 0 0; display: grid; gap: 22px; }
@@ -1661,13 +2056,17 @@ TEMPLATE = """<!DOCTYPE html>
   {%- endfor %}
   <div class="nav-group">
     <h3>Reference</h3>
+    <a href="#cohorts" data-target="cohorts">
+      <span class="nav-label">The cohort panels</span>
+      <span class="nav-title">Figure 3 and Figure 6, and the phase labels</span>
+    </a>
     <a href="#volcanoes" data-target="volcanoes">
       <span class="nav-label">The volcano panels</span>
       <span class="nav-title">Supplementary 5C / 5E / 5F, and the wider gene set</span>
     </a>
     <a href="#limitations" data-target="limitations">
       <span class="nav-label">What does not reproduce</span>
-      <span class="nav-title">Figure 1D</span>
+      <span class="nav-title">Figure 1D, Figure 3E and 3F</span>
     </a>
     <a href="#notes" data-target="notes">
       <span class="nav-label">Notes</span>
@@ -1689,8 +2088,9 @@ TEMPLATE = """<!DOCTYPE html>
   <p>This page is a preview of the figure panels produced by the
     <code>BradyzoiteHeterogeneity-figures</code> repository: the rendered output of
     <code>scripts/make_figures.py</code>, drawn from the deposited dataset, one panel per entry.
-    Each carries the metadata it was drawn with and its status — reproduced panels,
-    original-R numerical agreement, reconstructed analyses, or recorded counts — taken from
+    Each carries the metadata it was drawn with and its status — reproduced exactly,
+    original-R numerical agreement, reproduced from a wider gene set, reproduced with phase
+    labels that differ, a reconstruction, or a recorded constant — taken from
     <code>docs/reproducibility.md</code>.</p>
   <p>These are the individual panels as the analysis produced them. Panel letters, the Figure 1E
     grid and its row labels, the single shared colour bar across 1E and 1F, the in-plot cluster
@@ -1698,7 +2098,8 @@ TEMPLATE = """<!DOCTYPE html>
     figure assembly in a vector editor, and are not reproduced here.</p>
   <p class="fine">Hover a panel for its metadata; click it to enlarge, with the full metadata
     beside it. <kbd>←</kbd> and <kbd>→</kbd> move between panels, and between images inside the
-    lightbox; <kbd>Esc</kbd> closes it. Figure 1E has six genes on one control.</p>
+    lightbox; <kbd>Esc</kbd> closes it. Figure 1E and Supplementary 1B and 1C put their genes on
+    one control each.</p>
   <p class="fine">The embedded images are screen-resolution copies ({{ max_edge }} px on the long
     edge) of the 300 dpi renders. The full-resolution PNG, SVG and PDF for every panel are in
     <code>figures/</code>; the values behind them are in <code>data/</code>, and
@@ -1779,6 +2180,17 @@ TEMPLATE = """<!DOCTYPE html>
 
 <hr class="rule">
 
+<section class="doc" id="cohorts">
+  <h2>The cohort panels</h2>
+  <p class="lede">Figure 3A&ndash;3D and Figure 6 all draw one cohort of the same projection.
+    Three things are worth knowing before reading them: which embedding they use, why Figure 3A
+    and Figure 6's first panel are one image, and where the cell-cycle phase labels behind
+    Figure 3C went. Quoted from <code>docs/reproducibility.md</code>.</p>
+  <div class="quoted">{{ cohort_doc }}</div>
+</section>
+
+<hr class="rule">
+
 <section class="doc" id="volcanoes">
   <h2>The volcano panels</h2>
   <p class="lede">Supplementary 5C, 5E and 5F are reconstructed using a wider gene set.
@@ -1791,7 +2203,9 @@ TEMPLATE = """<!DOCTYPE html>
 
 <section class="doc" id="limitations">
   <h2>What does not reproduce</h2>
-  <p class="lede">Recorded-count provenance and outstanding limitations, summarised
+  <p class="lede">Three published panels are not reproductions: one is a recorded constant, and
+    two are drawn from an experiment this dataset does not contain. This is the honest list,
+    summarised
     from <code>docs/reproducibility.md</code>; the full text of that section follows.</p>
   <div class="missing">
     {%- for row in missing %}
@@ -1885,7 +2299,7 @@ def main() -> int:
     }
 
     facts = dataset_facts(args.data)
-    panels = build_panels(facts, verdicts)
+    panels = build_panels(facts, verdicts, args.figures)
 
     total_bytes = 0
     image_count = 0
@@ -1952,12 +2366,13 @@ def main() -> int:
 
     limitations_doc = md_to_html(doc_section(repro, "Not reproducible"))
     volcano_doc = md_to_html(doc_section(repro, "Reproduced from a wider gene set"))
+    cohort_doc = md_to_html(doc_section(repro, "Figure 3 and Figure 6"))
     # Everything the page has not already quoted, in the order the document has it,
     # so a section added to the docs turns up here rather than being dropped.
     quoted = (
         "Reproduced exactly",
-        "Reproduced as a reconstruction",
         "Reproduced from the original R recipe",
+        "Figure 3 and Figure 6",
         "Reproduced from a wider gene set",
         "Not reproducible",
     )
@@ -1979,6 +2394,7 @@ def main() -> int:
                 {key: Markup(value) for key, value in row.items()}
                 for row in missing_panels(facts)
             ],
+            cohort_doc=Markup(cohort_doc),
             volcano_doc=Markup(volcano_doc),
             limitations_doc=Markup(limitations_doc),
             notes_doc=Markup(notes_doc),
