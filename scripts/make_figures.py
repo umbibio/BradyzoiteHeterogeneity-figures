@@ -13,8 +13,8 @@ git-lfs installed still works. ``--no-fetch`` turns that off.
 from __future__ import annotations
 
 import argparse
-from functools import lru_cache
 import sys
+from functools import lru_cache
 from pathlib import Path
 
 import matplotlib
@@ -78,8 +78,6 @@ def build(
     write their companion CSV tables under ``outdir/tables`` when *outdir* is
     given.
     """
-    # Lazy: listing jobs never reads data, and selecting an existing panel does
-    # not compute the Figure 2H / Supplementary 4 heatmaps (or vice versa).
 
     # The Figure 3E/3F embedding is a small table of its own, read once and
     # shared by the two panels rather than loaded with the main dataset.

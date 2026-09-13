@@ -225,8 +225,6 @@ after the 8170, so the deposited matrix *is* the published universe;
 `var.in_analysis_object` is False for them. The export checks that the first 8170
 columns are still bit-identical to the deposited layer.
 
-The recipe:
-
 ```
 universe     all 8322 ToxoDB-65 genes (logcounts.mtx.gz)
 test         sc.tl.rank_genes_groups(groups=[A], reference=B, method="wilcoxon",

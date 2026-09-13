@@ -220,8 +220,8 @@ MIRRORS = [
     # pointer, and fetch_data.py rejects both on the checksum and moves on.
     # Pinned so the bytes can never drift from the checksums below — which also
     # means the pin has to be moved on the next data release.
-    "https://media.githubusercontent.com/media/umbibio/BradyzoiteHeterogeneity-figures/1c25d514bb4adf00b15f5b467ec68571aefd33c3/data/",
-    "https://raw.githubusercontent.com/umbibio/BradyzoiteHeterogeneity-figures/1c25d514bb4adf00b15f5b467ec68571aefd33c3/data/",
+    "https://media.githubusercontent.com/media/umbibio/BradyzoiteHeterogeneity-figures/d327dc38ddea5744573a780d23531d4059f05193/data/",
+    "https://raw.githubusercontent.com/umbibio/BradyzoiteHeterogeneity-figures/d327dc38ddea5744573a780d23531d4059f05193/data/",
     "https://watson.math.umb.edu/data/BradyzoiteHeterogeneity-figures/data/",
     "https://poisson.math.umb.edu/data/BradyzoiteHeterogeneity-figures/data/",
 ]

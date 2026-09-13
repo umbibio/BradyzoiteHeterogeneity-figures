@@ -5,9 +5,9 @@ RNA-seq data: the deposited dataset, the code that draws each panel, and notes o
 how each panel relates to the published figure.
 
 ```bash
-uv sync --extra preview               # or: pip install -e '.[preview]'
-uv run python scripts/make_figures.py # render every panel to PNG, SVG and PDF
-uv run python scripts/make_preview.py # build preview/index.html from what was rendered
+uv sync                              # or: pip install -e .
+python scripts/make_figures.py       # render every panel to PNG, SVG and PDF
+python scripts/make_preview.py       # build preview/index.html from what was rendered
 ```
 
 **You do not need git-lfs.** The input data is stored in LFS, but if your clone
@@ -26,19 +26,6 @@ Figure 2H and Supplementary 4 also write full-precision companion tables to
 python scripts/make_figures.py --panel Figure_2H Supplementary_4
 python -m unittest discover -s tests -v
 ```
-
-If using pip instead of uv, activate that environment and use `python` directly.
-To render only Figure 2H and Supplementary Figure 4:
-
-```bash
-python scripts/make_figures.py --panel Figure_2H Supplementary_4
-python -m unittest discover -s tests -v
-```
-
-These heatmaps read the same shared dataset, recover the original R normalization
-and write full-precision companion tables in `figures/tables/`. No Seurat object
-or additional expression download is needed. See
-[`docs/figure-2h-supplementary-4.md`](docs/figure-2h-supplementary-4.md).
 
 `preview/index.html` is a single self-contained page showing every rendered panel
 with its caption and source — no network access, so it can be opened from disk or
@@ -62,7 +49,7 @@ Drawn from the deposited data:
 * **Figure 1C** — selected marker genes per cluster
 * **Figure 1E / 1F** — per-gene expression UMAPs, and cst1 (srs44)
 * **Figure 1G** — CST1/SRS44 expression violins per cluster
-* **Figure 2H** — original 5 × 29 Pearson correlations across the 6,505 cells
+* **Figure 2H** — the 5 × 29 Pearson correlation heatmap across the in vivo cells
 * **Figure 3A / 3B / 3C** — each cohort by cell-cycle phase, and its phase bar
 * **Figure 3D** — the in vitro cells picked out of the projection
 * **Figure 3E / 3F** — the in vivo tachyzoites on the scVI integration, plain and
@@ -97,12 +84,6 @@ BZFIG_DATA_URLS="https://mirror-a/ https://mirror-b/" python scripts/fetch_data.
 python scripts/fetch_data.py --check      # verify what is already on disk
 python scripts/make_figures.py --no-fetch # fail rather than download
 ```
-
-The manifest tries a commit-pinned public GitHub LFS mirror first, then the
-institutional mirrors, avoiding their timeout when the public copy is available.
-Update the pin when publishing a new data release; hashes reject stale files.
-TLS certificate verification remains enabled; a Python installation lacking its
-CA bundle must have that local installation repaired, not disable verification.
 
 The dataset ships in plain formats that need no special library — MatrixMarket
 for the expression matrix, gzipped CSV for the cell and gene metadata and the
@@ -143,7 +124,7 @@ docs/           reproducibility notes
 preview/        self-contained HTML preview of every panel
 ```
 
-`src/bzfig/constants.py` and `src/bzfig/figure_2h_supplementary_4_metadata.json` hold values that are not
+`src/bzfig/constants.py` holds every value the figures depend on that is not
 derivable from the data — palettes, colour limits, gene lists, and the counts
 that were hard-coded when the figures were made. Each is annotated with where it
 came from. `src/bzfig/figure_2h_supplementary_4_metadata.json` does the same for
